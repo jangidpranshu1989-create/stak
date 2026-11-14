@@ -1,0 +1,318 @@
+// LLM layer — 100% OpenAI-compatible (Chat Completions + SSE streaming).
+// Built-in providers: Groq, NVIDIA NIM, and any OpenAI-compatible endpoint configured by env (see server/config.js).
+// Built-in "Stak" presets (Pro / Think / Fast / Search) are ordered fallback chains across providers;
+// every catalog model can also be picked directly. User-added models (own keys) are handled by kind:"user".
+const CFG = require("./config");
+
+// ----------------------------------------------------------------- catalog
+// id: "<provider>:<model>"  ·  out = max output tokens we request  ·  reasoning = supports reasoning_effort
+const CATALOG = [
+  // Groq — LPU speed. GPT-OSS supports reasoning_effort + built-in browser_search.
+  { provider: "groq", model: "openai/gpt-oss-120b", name: "GPT-OSS 120B", by: "Groq", cats: ["deep", "thinking"], out: 32000, reasoning: true, search: true, desc: "Best all-round builder · reasoning · web search" },
+  { provider: "groq", model: "qwen/qwen3.8-27b", name: "Qwen 3.8 27B", by: "Groq", cats: ["deep", "fast"], out: 16384, desc: "Long, detailed pages · very fast" },
+  { provider: "groq", model: "openai/gpt-oss-20b", name: "GPT-OSS 20B", by: "Groq", cats: ["fast"], out: 32000, reasoning: true, search: true, desc: "Fastest · great for edits & landing pages" },
+  // NVIDIA NIM — huge open-model catalog (availability varies; health-checked at runtime)
+  { provider: "nvidia", model: "nvidia/nemotron-3-ultra-550b-a55b", name: "Nemotron 3 Ultra 550B", by: "NVIDIA", cats: ["deep", "thinking"], out: 32000, desc: "Very detailed full builds · slower" },
+  { provider: "nvidia", model: "mistralai/mistral-large-4-1t-a52b", name: "Mistral Large 4", by: "NVIDIA", cats: ["deep"], out: 16000, desc: "1T-param flagship" },
+  { provider: "nvidia", model: "minimaxai/minimax-m3.1-flash", name: "MiniMax M3.1 Flash", by: "NVIDIA", cats: ["fast"], out: 16000, desc: "Fast agentic coder" },
+  { provider: "nvidia", model: "deepseek-ai/deepseek-v4.1-flash", name: "DeepSeek V4.1 Flash", by: "NVIDIA", cats: ["deep", "fast"], out: 16000, desc: "Strong coder" },
+  { provider: "nvidia", model: "z-ai/glm-5.3-flash", name: "GLM 5.3 Flash", by: "NVIDIA", cats: ["fast"], out: 16000, desc: "Fast coder" },
+  { provider: "nvidia", model: "stepfun-ai/step-5-preview", name: "Step 5 Preview", by: "NVIDIA", cats: ["deep"], out: 16000, desc: "New frontier preview" },
+  { provider: "nvidia", model: "poolside/laguna-xs-2.1", name: "Laguna XS 2.1", by: "NVIDIA", cats: ["fast"], out: 16000, desc: "Compact coding model" },
+  { provider: "nvidia", model: "nvidia/nemotron-3.5-lightning-30b-a3b", name: "Nemotron 3.5 Lightning", by: "NVIDIA", cats: ["thinking"], out: 16000, desc: "Reasoning model" },
+  { provider: "nvidia", model: "google/gemma-4-31b-it", name: "Gemma 4 31B", by: "NVIDIA", cats: ["fast"], out: 8000, desc: "Google open model" },
+].map((m) => ({ ...m, id: `${m.provider}:${m.model}` }));
+
+// custom OpenAI-compatible endpoint models from env (OPENAI_COMPAT_MODELS="id|Name,id2|Name2")
+for (const spec of CFG.providers.custom?.models || []) {
+  CATALOG.push({ provider: "custom", model: spec.id, name: spec.name, by: CFG.providers.custom.label, cats: ["deep"], out: 16000, desc: "Your OpenAI-compatible endpoint", id: `custom:${spec.id}` });
+}
+
+const byId = (id) => CATALOG.find((m) => m.id === id);
+const configured = (m) => !!CFG.providers[m.provider];
+
+// ----------------------------------------------------------------- presets (fallback chains)
+const ENV_LIST = (k) => (process.env[k] ? process.env[k].split(",").map((s) => s.trim()).filter(Boolean) : null);
+const CHAINS = {
+  // Groq goes first automatically when its key has enough tokens-per-minute (GROQ_TPM, see fits()); otherwise NVIDIA leads.
+  build: ENV_LIST("STAK_CHAIN_BUILD") || ["groq:openai/gpt-oss-120b", "nvidia:nvidia/nemotron-3-ultra-550b-a55b", "nvidia:minimaxai/minimax-m3.1-flash", "nvidia:poolside/laguna-xs-2.1", "nvidia:deepseek-ai/deepseek-v4.1-flash", "groq:qwen/qwen3.8-27b", "nvidia:stepfun-ai/step-5-preview", "nvidia:mistralai/mistral-large-4-1t-a52b", "groq:openai/gpt-oss-20b"],
+  plan: ENV_LIST("STAK_CHAIN_PLAN") || ["groq:openai/gpt-oss-120b", "nvidia:nvidia/nemotron-3-ultra-550b-a55b", "groq:qwen/qwen3.8-27b"],
+  fast: ENV_LIST("STAK_CHAIN_FAST") || ["groq:openai/gpt-oss-20b", "groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "nvidia:minimaxai/minimax-m3.1-flash"],
+  quick: ENV_LIST("STAK_CHAIN_QUICK") || ["groq:openai/gpt-oss-20b", "nvidia:poolside/laguna-xs-2.1", "nvidia:minimaxai/minimax-m3.1-flash", "groq:qwen/qwen3.8-27b", "nvidia:nvidia/nemotron-3-ultra-550b-a55b"],
+};
+if (CFG.providers.custom) for (const k of Object.keys(CHAINS)) CHAINS[k].push(...CATALOG.filter((m) => m.provider === "custom").map((m) => m.id));
+
+const PRESETS = [
+  { id: "stak:pro", name: "Stak Pro", categories: ["deep"], desc: "Deep, production-grade full-stack builds — the best default", sub: "GPT-OSS 120B · Nemotron 3 Ultra · MiniMax · Laguna — auto-fallback", chains: { build: "build", fast: "fast", plan: "plan" }, effort: { build: "medium", fast: "low", plan: "high" } },
+  { id: "stak:think", name: "Stak Think", categories: ["thinking"], desc: "Researches + plans the whole app first, then builds it", sub: "High reasoning plan → full build · best for complex apps", chains: { build: "build", fast: "fast", plan: "plan" }, effort: { build: "high", fast: "low", plan: "high" }, plan: true },
+  { id: "stak:fast", name: "Stak Fast", categories: ["fast"], desc: "Quick drafts and small edits in seconds", sub: "GPT-OSS 20B · Laguna XS · MiniMax Flash — quick drafts", chains: { build: "quick", fast: "fast", plan: "quick" }, effort: { build: "low", fast: "low", plan: "low" } },
+];
+
+// ----------------------------------------------------------------- health (circuit breaker)
+// A model that errors gets cooled down; chains skip cooled models. Periodic probe refreshes availability.
+const health = new Map(); // id -> { ok, until, fails, lastError, checked, ms }
+const cooled = (id) => { const h = health.get(id); return h && h.until > Date.now(); };
+function markFail(id, err) {
+  const h = health.get(id) || { fails: 0 };
+  h.fails = (h.fails || 0) + 1; h.ok = false; h.lastError = String(err?.message || err).slice(0, 200);
+  const status = Number(err?.status || 0);
+  const ms = status === 404 || status === 410 ? 6 * 3600e3 : status === 429 ? Math.min(120e3, (err.retryAfter || 20) * 1000) : Math.min(15 * 60e3, 30e3 * 2 ** Math.min(h.fails - 1, 5));
+  h.until = Date.now() + ms; health.set(id, h);
+}
+function markOk(id, ms) { health.set(id, { ok: true, fails: 0, until: 0, checked: Date.now(), ms }); }
+
+async function probeModel(m) {
+  const t = Date.now();
+  try {
+    const r = await chat({ provider: m.provider, model: m.model, messages: [{ role: "user", content: "Reply with exactly: OK" }], maxTokens: 64, temperature: 0, timeoutMs: 25000, reasoning: m.reasoning ? "low" : null });
+    if (!/ok/i.test(r.text + r.thinking)) throw new Error("bad reply");
+    markOk(m.id, Date.now() - t); return true;
+  } catch (e) { markFail(m.id, e); return false; }
+}
+async function refreshHealth() {
+  const list = CATALOG.filter(configured);
+  for (let i = 0; i < list.length; i += 4) await Promise.all(list.slice(i, i + 4).map(probeModel));
+  const ok = list.filter((m) => health.get(m.id)?.ok).map((m) => m.name);
+  console.log(`[llm] healthy models: ${ok.join(", ") || "none"}`);
+}
+
+// ----------------------------------------------------------------- transport
+function endpoint(provider) {
+  const p = CFG.providers[provider];
+  if (!p) throw Object.assign(new Error(`Provider "${provider}" is not configured`), { status: 0 });
+  return p;
+}
+
+// Low-level streaming call. Returns { text, thinking, ttftMs, tps, stop, tools }.
+async function streamOpenAI({ baseUrl, apiKey, headers: extraHeaders, model, system, messages, maxTokens = 16000, temperature = 0.6, onText, onThinking, signal, timeoutMs = 300000, reasoning = null, tools = null, toolChoice = null, idleMs = 90000 }) {
+  const ac = new AbortController();
+  let timer = setTimeout(() => ac.abort(new Error("Model timed out")), timeoutMs);
+  let idle = null;
+  const bump = () => { clearTimeout(idle); idle = setTimeout(() => ac.abort(new Error("Model stopped responding")), idleMs); };
+  if (signal) signal.addEventListener("abort", () => ac.abort(signal.reason));
+  const url = baseUrl.replace(/\/+$/, "") + "/chat/completions";
+  const msgs = [...(system ? [{ role: "system", content: system }] : []), ...messages];
+  const body = { model, messages: msgs, stream: true, max_tokens: maxTokens, temperature };
+  if (reasoning) body.reasoning_effort = reasoning;
+  if (tools) { body.tools = tools; if (toolChoice) body.tool_choice = toolChoice; }
+  let res;
+  try {
+    bump();
+    res = await fetch(url, {
+      method: "POST", signal: ac.signal,
+      headers: { "Content-Type": "application/json", Accept: "text/event-stream", ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}), ...(extraHeaders || {}) },
+      body: JSON.stringify(body),
+    });
+  } catch (e) { clearTimeout(timer); clearTimeout(idle); throw Object.assign(new Error("Could not reach model: " + (e.message || e)), { status: 0 }); }
+  if (!res.ok) {
+    clearTimeout(timer); clearTimeout(idle);
+    const t = await res.text().catch(() => "");
+    let m = t; try { const j = JSON.parse(t); m = j.error?.message || j.message || j.detail || t; } catch {}
+    throw Object.assign(new Error(`${res.status} ${String(m || res.statusText).slice(0, 300)}`), { status: res.status, retryAfter: Number(res.headers.get("retry-after")) || 0 });
+  }
+  let out = "", think = "", inThink = false, buf = "", firstAt = 0, tokens = 0, stop = null, toolsOut = null;
+  const started = Date.now();
+  const dec = new TextDecoder();
+  const handleContent = (c) => {
+    let s = c; // strip inline <think>…</think> some models emit
+    while (s.length) {
+      if (inThink) {
+        const e = s.indexOf("</think>");
+        if (e < 0) { think += s; onThinking && onThinking(think); s = ""; }
+        else { think += s.slice(0, e); inThink = false; s = s.slice(e + 8); }
+      } else {
+        const b = s.indexOf("<think>");
+        if (b < 0) { out += s; onText && onText(s, out); s = ""; }
+        else { const pre = s.slice(0, b); if (pre) { out += pre; onText && onText(pre, out); } inThink = true; s = s.slice(b + 7); }
+      }
+    }
+  };
+  try {
+    for await (const chunk of res.body) {
+      bump();
+      buf += dec.decode(chunk, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if (!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if (data === "[DONE]") continue;
+        let j; try { j = JSON.parse(data); } catch { continue; }
+        if (j.error) throw Object.assign(new Error(j.error.message || "Model error"), { status: 500 });
+        const ch = j.choices?.[0] || {};
+        const d = ch.delta || {};
+        const r = d.reasoning_content || d.reasoning;
+        if (r) { if (!firstAt) firstAt = Date.now(); think += r; tokens++; onThinking && onThinking(think); }
+        if (d.content) { if (!firstAt) firstAt = Date.now(); tokens++; handleContent(d.content); }
+        if (d.executed_tools) toolsOut = (toolsOut || []).concat(d.executed_tools);
+        if (ch.finish_reason) stop = ch.finish_reason;
+        if (j.usage?.completion_tokens) tokens = Math.max(tokens, j.usage.completion_tokens);
+        if (j.x_groq?.usage?.completion_tokens) tokens = Math.max(tokens, j.x_groq.usage.completion_tokens);
+      }
+    }
+  } catch (e) {
+    throw Object.assign(new Error(e.message || "Stream failed"), { status: e.status || 502, partial: out });
+  } finally { clearTimeout(timer); clearTimeout(idle); }
+  const secs = Math.max(0.1, (Date.now() - (firstAt || started)) / 1000);
+  const estTokens = Math.max(tokens, Math.round((out.length + think.length) / 4));
+  return { text: out, thinking: think, ttftMs: firstAt ? firstAt - started : 0, tps: Math.round(estTokens / secs), stop: stop === "length" ? "max_tokens" : stop, tools: toolsOut };
+}
+
+// call a catalog/provider model
+function chat({ provider, model, __direct, ...opts }) {
+  if (__direct) return streamOpenAI({ ...opts, baseUrl: __direct.baseUrl, apiKey: __direct.apiKey, model: __direct.model });
+  const p = endpoint(provider);
+  return streamOpenAI({ ...opts, baseUrl: p.baseUrl, apiKey: p.proxyKey ? null : p.apiKey, headers: p.proxyKey ? { "x-api-key": p.proxyKey } : null, model });
+}
+
+// ----------------------------------------------------------------- resolution
+function builtin(id) {
+  const p = PRESETS.find((x) => x.id === id);
+  if (p) return p;
+  const m = byId(id);
+  if (m && configured(m)) return { id: m.id, name: `${m.name}`, single: m, categories: m.cats };
+  return null;
+}
+
+// candidate list for a builtin selection + role
+function candidates(sel, role) {
+  const r = role === "plan" ? "plan" : role === "fast" ? "fast" : "build";
+  let ids;
+  if (sel.single) ids = [sel.single.id, ...CHAINS[r === "fast" ? "fast" : "build"]];
+  else ids = CHAINS[sel.chains[r]] || CHAINS.build;
+  const seen = new Set();
+  const list = ids.map(byId).filter((m) => m && configured(m) && !seen.has(m.id) && seen.add(m.id));
+  const warm = list.filter((m) => !cooled(m.id));
+  return warm.length ? [...warm, ...list.filter((m) => cooled(m.id))] : list; // if everything is cooled, still try in order
+}
+
+const retryable = (e) => !e.status || e.status === 408 || e.status === 409 || e.status === 429 || e.status >= 500 || e.status === 404 || e.status === 410 || e.status === 400 || /timed out|stopped responding|reach model|prematurely|terminated|socket/i.test(e.message);
+
+// Free Groq keys have a small tokens-per-minute budget (prompt + max_tokens must fit). Skip models that can't fit the request.
+const estTokens = (opts) => Math.ceil(((opts.system || "").length + (opts.messages || []).reduce((n, m) => n + String(m.content || "").length, 0)) / 3.6);
+function fits(c, opts, role) {
+  const tpm = CFG.providers[c.provider]?.tpm;
+  if (!tpm) return Math.min(opts.maxTokens || 16000, c.out || 16000);
+  const room = tpm - estTokens(opts) - 300;
+  const want = Math.min(opts.maxTokens || 16000, c.out || 16000);
+  const need = role === "build" && want >= 12000 ? 12000 : Math.min(want, 900);
+  return room >= need ? Math.min(want, room) : 0;
+}
+
+// One model, with automatic CONTINUATION: if the stream is cut (proxy/socket limits, idle timeouts) or hits max_tokens
+// after producing real output, ask the same model to continue exactly where it stopped and stitch the text together.
+const CONT_PROMPT = "Your previous reply was cut off. Continue EXACTLY from the last character you wrote — do not repeat anything, do not restart files, no preamble. Output only the continuation.";
+const cutErr = (e) => /terminated|socket|stopped responding|timed out|prematurely|ECONNRESET|other side closed|aborted/i.test(String(e?.message || "") + String(e?.cause?.code || ""));
+async function streamWithContinuation(c, opts, extra) {
+  let acc = "", thinking = "", conts = 0, last = null;
+  const maxConts = opts.maxContinuations ?? (opts.role === "build" ? 8 : 2);
+  for (;;) {
+    let buf = "", flushed = conts === 0;
+    const emit = (t) => { acc += t; opts.onText && opts.onText(t, acc); };
+    const onText = (t) => {
+      extra.streamed();
+      if (flushed) return emit(t);
+      buf += t;
+      if (buf.length < 400) return;
+      flushed = true;
+      let k = Math.min(400, buf.length);
+      for (; k >= 12; k--) if (acc.endsWith(buf.slice(0, k))) break;
+      emit(k >= 12 ? buf.slice(k) : buf);
+    };
+    const messages = conts ? [...opts.messages, { role: "assistant", content: acc }, { role: "user", content: CONT_PROMPT }] : opts.messages;
+    try {
+      const r = await chat({ ...opts, ...extra.call, messages, onText });
+      if (!flushed) { flushed = true; let k = Math.min(400, buf.length); for (; k >= 12; k--) if (acc.endsWith(buf.slice(0, k))) break; emit(k >= 12 ? buf.slice(k) : buf); }
+      thinking += r.thinking || "";
+      last = r;
+      if (r.stop === "max_tokens" && acc.length > 800 && conts < maxConts && opts.continuable !== false) { conts++; continue; }
+      return { ...r, text: acc, thinking, continuations: conts };
+    } catch (e) {
+      if (!flushed && buf) { flushed = true; emit(buf); }
+      if (acc.length > 1500 && conts < maxConts && opts.continuable !== false && cutErr(e)) { conts++; console.warn(`[llm] ${c.id} cut after ${acc.length} chars — continuing (${conts})`); continue; }
+      throw Object.assign(e, { partial: acc });
+    }
+  }
+  void last;
+}
+
+// unified: m = { kind: "builtin", id } | { kind: "user", baseUrl, apiKey, model }
+// opts.onRestart(candidate) is called before a fallback attempt if the previous one already streamed text.
+async function stream(m, opts) {
+  if (m.kind === "user") {
+    const c = { id: `user:${m.model}`, provider: null };
+    const call = { baseUrl: m.baseUrl, apiKey: m.apiKey, model: m.model };
+    return streamWithContinuationUser(c, opts, call);
+  }
+  const sel = builtin(m.id) || PRESETS[0];
+  const role = opts.role || "build";
+  const list = candidates(sel, role).filter((c) => fits(c, opts, role) > 0);
+  if (!list.length) throw Object.assign(new Error("No AI provider is configured on this server (set GROQ_API_KEY and/or NVIDIA_API_KEY)"), { status: 503 });
+  let lastErr = null, streamed = false;
+  const maxAttempts = Math.min(list.length, opts.maxAttempts || 4);
+  for (let i = 0; i < maxAttempts; i++) {
+    const c = list[i];
+    if (streamed && opts.onRestart) { try { opts.onRestart(c); } catch {} }
+    streamed = false;
+    const effort = c.reasoning ? (opts.reasoning || sel.effort?.[role] || (role === "fast" ? "low" : "medium")) : null;
+    const t0 = Date.now();
+    try {
+      const r = await streamWithContinuation(c, opts, {
+        streamed: () => { streamed = true; },
+        call: { provider: c.provider, model: c.model, reasoning: effort, maxTokens: fits(c, opts, role) },
+      });
+      if (!r.text.trim() && !opts.allowEmpty) throw Object.assign(new Error("Empty response"), { status: 502 });
+      markOk(c.id, Date.now() - t0);
+      r.modelId = c.id; r.modelName = `${c.name} · ${c.by}`;
+      if (i > 0 && opts.onFallback) opts.onFallback(c, lastErr);
+      return r;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`[llm] ${c.id} failed (${role}): ${String(e.message).slice(0, 160)}`);
+      markFail(c.id, e);
+      if (e.name === "AbortError" && opts.signal?.aborted) throw e;
+      if (!retryable(e)) throw e;
+    }
+  }
+  throw lastErr || new Error("All models failed");
+}
+// user models (own key): same continuation logic, direct endpoint
+function streamWithContinuationUser(c, opts, call) {
+  const direct = { ...opts };
+  return streamWithContinuation(c, direct, { streamed: () => {}, call: { __direct: call } });
+}
+
+async function complete(m, opts) {
+  const r = await stream(m, { ...opts, onText: null });
+  return r.text;
+}
+
+// robust JSON extraction
+function parseJSON(text) {
+  if (!text) return null;
+  let s = String(text).trim().replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+  try { return JSON.parse(s); } catch {}
+  const a = s.indexOf("{"), b = s.lastIndexOf("}");
+  if (a >= 0 && b > a) { try { return JSON.parse(s.slice(a, b + 1)); } catch {} }
+  return null;
+}
+
+// what /api/models shows as "built-in"
+function builtinList() {
+  const avail = (m) => configured(m) && health.get(m.id)?.ok !== false;
+  const presets = PRESETS.map(({ id, name, categories, desc, sub }) => ({ id, name, categories, desc, sub }));
+  const singles = CATALOG.filter(avail).map((m) => {
+    const h = health.get(m.id);
+    return { id: m.id, name: `${m.name} · ${m.by}`, categories: m.cats, desc: m.desc, sub: `${m.by} · ${m.model}${h?.ms ? ` · ${(h.ms / 1000).toFixed(1)}s ping` : ""}${m.search ? " · web search" : ""}` };
+  });
+  return [...presets, ...singles];
+}
+function status() {
+  return {
+    providers: Object.fromEntries(Object.entries(CFG.providers).map(([k, v]) => [k, { configured: true, label: v.label }])),
+    models: CATALOG.filter(configured).map((m) => ({ id: m.id, ok: health.get(m.id)?.ok ?? null, ms: health.get(m.id)?.ms || null, error: health.get(m.id)?.ok === false ? health.get(m.id).lastError : undefined })),
+  };
+}
+
+const BUILTIN = PRESETS; // back-compat export
+module.exports = { BUILTIN, PRESETS, CATALOG, CHAINS, builtin, builtinList, stream, complete, chat, streamOpenAI, parseJSON, refreshHealth, status, health, configured, byId };
