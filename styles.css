@@ -1,0 +1,478 @@
+/* ==========================================================================
+   Delight Restaurant — Custom Theme & Styles
+   Palette: Black & Silver (Elegant & Sophisticated)
+   Fonts: Fraunces (display) + Manrope (text)
+   ========================================================================== */
+
+:root {
+  /* Core palette — Black & Silver */
+  --background: 0 0% 4%;           /* Near-black #0A0A0A */
+  --foreground: 0 0% 98%;          /* Near-white #FAFAFA */
+  --card: 0 0% 7%;                 /* Slightly lighter black #121212 */
+  --card-foreground: 0 0% 98%;
+  --muted: 0 0% 12%;               /* Dark silver #1F1F1F */
+  --muted-foreground: 0 0% 65%;    /* Medium silver #A6A6A6 */
+  --accent: 0 0% 18%;              /* Silver accent #2E2E2E */
+  --accent-foreground: 0 0% 98%;
+
+  /* Brand colors */
+  --primary: 0 0% 75%;             /* Silver #C0C0C0 */
+  --primary-foreground: 0 0% 4%;   /* Black on silver */
+  --secondary: 0 0% 25%;           /* Dark silver #404040 */
+  --secondary-foreground: 0 0% 98%;
+  --destructive: 0 75% 55%;        /* Elegant red for errors */
+  --destructive-foreground: 0 0% 98%;
+  --success: 142 50% 45%;          /* Deep emerald */
+  --success-foreground: 0 0% 98%;
+  --warning: 45 90% 55%;           /* Warm gold */
+  --warning-foreground: 0 0% 4%;
+
+  /* Borders & inputs */
+  --border: 0 0% 20%;              /* Subtle silver border #333 */
+  --input: 0 0% 15%;               /* Input background #262626 */
+  --ring: 0 0% 75%;                /* Focus ring = primary silver */
+
+  /* Layout */
+  --radius: 1rem;
+  --container: 1200px;
+  --font-sans: "Manrope", system-ui, sans-serif;
+  --font-display: "Fraunces", serif;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.3);
+  --shadow: 0 4px 12px hsl(0 0% 0% / 0.4);
+  --shadow-lg: 0 12px 32px hsl(0 0% 0% / 0.5);
+  --shadow-xl: 0 20px 48px hsl(0 0% 0% / 0.6);
+}
+
+.dark {
+  /* Already dark-first; keep same values */
+}
+
+@media (prefers-color-scheme: light) {
+  :root:not(.dark) {
+    --background: 0 0% 98%;
+    --foreground: 0 0% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 4%;
+    --muted: 0 0% 90%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 0 0% 85%;
+    --accent-foreground: 0 0% 4%;
+    --primary: 0 0% 25%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 4%;
+    --border: 0 0% 82%;
+    --input: 0 0% 92%;
+    --ring: 0 0% 25%;
+  }
+}
+
+/* ==========================================================================
+   Base & Typography
+   ========================================================================== */
+
+* { box-sizing: border-box }
+html { scroll-behavior: smooth }
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important }
+}
+
+body {
+  font-family: var(--font-sans);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, .display, .h2, .h3 { font-family: var(--font-display); font-weight: 500; line-height: 1.2 }
+.display { font-size: clamp(2.5rem, 5vw, 4.5rem); letter-spacing: -0.02em }
+.h2 { font-size: clamp(1.75rem, 3vw, 2.5rem); letter-spacing: -0.01em }
+.h3 { font-size: clamp(1.25rem, 2vw, 1.5rem) }
+.lead { font-size: clamp(1.1rem, 1.5vw, 1.25rem); color: hsl(var(--muted-foreground)); max-width: 65ch }
+.eyebrow { font-size: .8rem; text-transform: uppercase; letter-spacing: .2em; font-weight: 600 }
+.muted { color: hsl(var(--muted-foreground)) }
+.small { font-size: .875rem }
+
+/* Links */
+a { color: inherit; text-decoration: none; transition: color .15s ease }
+a:hover { color: hsl(var(--primary)) }
+.footer-link:hover { color: hsl(var(--primary)) }
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection { background: hsl(var(--primary) / .3); color: hsl(var(--foreground)) }
+
+/* ==========================================================================
+   Layout Utilities (extend Stak UI)
+   ========================================================================== */
+
+.container { width: 100%; max-width: var(--container); margin: 0 auto; padding: 0 1.5rem }
+.section { padding: 5rem 0 }
+.section-sm { padding: 3rem 0 }
+.stack { display: flex; flex-direction: column }
+.row { display: flex; flex-wrap: wrap }
+.between { justify-content: space-between }
+.center { align-items: center }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2rem }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.5rem }
+.auto-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(var(--min, 280px), 1fr)); gap: 1.5rem }
+
+@media (max-width: 900px) {
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr }
+  .section { padding: 3.5rem 0 }
+}
+
+/* ==========================================================================
+   Navbar
+   ========================================================================== */
+
+.navbar { position: sticky; top: 0; z-index: 100; background: hsl(var(--background) / .85); backdrop-filter: blur(12px); border-bottom: 1px solid hsl(var(--border)) }
+.navbar-inner { display: flex; align-items: center; justify-content: space-between; height: 72px; gap: 1.5rem }
+.logo { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; font-family: var(--font-display); font-weight: 500; font-size: 1.25rem; color: hsl(var(--foreground)) }
+.logo-mark { width: 36px; height: 36px; color: hsl(var(--primary)) }
+.logo:hover .logo-mark { color: hsl(var(--primary) / .7) }
+.nav-links { display: flex; gap: .5rem }
+.nav-link { padding: .5rem 1rem; border-radius: .5rem; font-weight: 500; font-size: .9rem; color: hsl(var(--muted-foreground)); transition: all .15s ease }
+.nav-link:hover { color: hsl(var(--foreground)); background: hsl(var(--accent)) }
+.nav-actions { display: flex; align-items: center; gap: .5rem }
+.nav-toggle { display: none }
+.mobile-nav { display: none; padding: 1rem 1.5rem; border-top: 1px solid hsl(var(--border)); background: hsl(var(--background)) }
+.mobile-nav-link { display: block; padding: .75rem 1rem; border-radius: .5rem; font-weight: 500; color: hsl(var(--muted-foreground)) }
+.mobile-nav-link:hover { color: hsl(var(--foreground)); background: hsl(var(--accent)) }
+.mobile-nav-link.admin-link { border-top: 1px solid hsl(var(--border)); margin-top: .5rem; padding-top: 1rem; color: hsl(var(--primary)) }
+
+@media (max-width: 768px) {
+  .nav-links { display: none }
+  .nav-toggle { display: flex }
+  .mobile-nav.open { display: block }
+}
+
+/* ==========================================================================
+   Hero
+   ========================================================================== */
+
+.hero { position: relative; min-height: 100vh; display: flex; align-items: center; overflow: hidden }
+.hero-bg { position: absolute; inset: 0; z-index: -1 }
+.hero-bg img { width: 100%; height: 100%; object-fit: cover }
+.hero-overlay { position: absolute; inset: 0; background: linear-gradient(180deg, hsl(var(--background) / .4) 0%, hsl(var(--background) / .85) 60%, hsl(var(--background)) 100%) }
+.hero-content { width: 100%; padding: 2rem 0 4rem }
+.hero-copy { max-width: 70ch }
+.hero-stats { border-top: 1px solid hsl(var(--border) / .3); padding-top: 1.5rem }
+.stat { text-align: center }
+.stat-value { font-family: var(--font-display); font-size: clamp(2rem, 4vw, 3rem); font-weight: 700; color: hsl(var(--primary)); line-height: 1 }
+.stat-label { display: block; font-size: .8rem; text-transform: uppercase; letter-spacing: .1em; color: hsl(var(--muted-foreground)); margin-top: .25rem }
+.hero-scroll { position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%); color: hsl(var(--muted-foreground)); animation: bounce 2s ease-in-out infinite }
+@keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0) } 50% { transform: translateX(-50%) translateY(8px) } }
+
+/* ==========================================================================
+   Cards & Components
+   ========================================================================== */
+
+.card { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); overflow: hidden; transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease }
+.card-hover:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); border-color: hsl(var(--primary) / .3) }
+.card-media { width: 100%; height: 100%; object-fit: cover }
+.card-header { padding: 1.5rem 1.5rem 0 }
+.card-body { padding: 1.5rem }
+.card-footer { padding: 0 1.5rem 1.5rem; display: flex; gap: .75rem; justify-content: flex-end }
+.card-title { font-family: var(--font-display); font-size: 1.25rem; font-weight: 500 }
+.card-desc { color: hsl(var(--muted-foreground)); margin-top: .25rem }
+
+/* Feature Icon */
+.feature-icon { width: 48px; height: 48px; border-radius: .75rem; background: hsl(var(--primary) / .1); color: hsl(var(--primary)); display: flex; align-items: center; justify-content: center; flex-shrink: 0 }
+.feature-icon svg { width: 24px; height: 24px }
+
+/* Stats */
+.stat { text-align: center }
+
+/* Price Card */
+.price-card { position: relative }
+.price-card[data-featured="true"] { border-color: hsl(var(--primary)); box-shadow: 0 0 0 1px hsl(var(--primary)), var(--shadow-lg) }
+.price-card[data-featured="true"]::before { content: "Popular"; position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: hsl(var(--primary)); color: hsl(var(--primary-foreground)); font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; padding: .25rem .75rem; border-radius: 9999px }
+
+/* Badges */
+.badge { display: inline-flex; align-items: center; padding: .25rem .75rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .05em }
+.badge-outline { border: 1px solid hsl(var(--border)); color: hsl(var(--muted-foreground)) }
+.badge-primary { background: hsl(var(--primary) / .15); color: hsl(var(--primary)) }
+.badge-success { background: hsl(var(--success) / .15); color: hsl(var(--success)) }
+.badge-warning { background: hsl(var(--warning) / .15); color: hsl(var(--warning)) }
+.badge-danger { background: hsl(var(--destructive) / .15); color: hsl(var(--destructive)) }
+
+/* Live Dot */
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: hsl(var(--success)); animation: pulse 2s ease-in-out infinite }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1) } 50% { opacity: .5; transform: scale(.9) } }
+
+/* Avatar */
+.avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: hsl(var(--muted)) }
+
+/* Separator */
+.separator { border: 0; border-top: 1px solid hsl(var(--border)) }
+
+/* ==========================================================================
+   Forms
+   ========================================================================== */
+
+.field { display: flex; flex-direction: column; gap: .35rem }
+.label { font-size: .8rem; font-weight: 600; color: hsl(var(--foreground)) }
+.input, .select, .textarea { width: 100%; padding: .75rem 1rem; border: 1px solid hsl(var(--border)); border-radius: .5rem; background: hsl(var(--input)); color: hsl(var(--foreground)); font-family: inherit; font-size: .95rem; transition: border-color .15s, box-shadow .15s }
+.input:focus, .select:focus, .textarea:focus { outline: none; border-color: hsl(var(--ring)); box-shadow: 0 0 0 3px hsl(var(--ring) / .2) }
+.input::placeholder, .textarea::placeholder { color: hsl(var(--muted-foreground) / .6) }
+.select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23A6A6A6' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .75rem center; padding-right: 2.5rem }
+.textarea { resize: vertical; min-height: 80px }
+.hint, .field-error { font-size: .75rem; color: hsl(var(--muted-foreground)) }
+.field-error { color: hsl(var(--destructive)) }
+.field:has(.input:invalid:not(:placeholder-shown)) .input { border-color: hsl(var(--destructive)) }
+
+/* Checkbox, Radio, Switch */
+.checkbox, .radio { display: inline-flex; align-items: center; gap: .5rem; cursor: pointer; font-size: .9rem }
+.checkbox input, .radio input { width: 18px; height: 18px; accent-color: hsl(var(--primary)) }
+.switch { position: relative; display: inline-flex; align-items: center; width: 44px; height: 24px }
+.switch input { opacity: 0; width: 0; height: 0 }
+.switch span { position: absolute; inset: 0; background: hsl(var(--border)); border-radius: 9999px; transition: background .2s }
+.switch span::before { content: ""; position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; background: hsl(var(--foreground)); border-radius: 50%; box-shadow: var(--shadow-sm); transition: transform .2s }
+.switch input:checked + span { background: hsl(var(--primary)) }
+.switch input:checked + span::before { transform: translateX(20px) }
+.switch input:focus-visible + span { outline: 2px solid hsl(var(--ring)); outline-offset: 2px }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .5rem; padding: .75rem 1.5rem; border-radius: .5rem; font-family: inherit; font-weight: 600; font-size: .9rem; line-height: 1; border: 1px solid transparent; cursor: pointer; transition: all .15s ease; text-decoration: none; white-space: nowrap }
+.btn:disabled { opacity: .5; cursor: not-allowed }
+.btn-lg { padding: 1rem 2rem; font-size: 1rem }
+.btn-sm { padding: .5rem 1rem; font-size: .8rem }
+.btn-icon { padding: .6rem; aspect-ratio: 1 }
+.btn-block { width: 100% }
+.btn-loading { display: none }
+.btn:disabled .btn-text { display: none }
+.btn:disabled .btn-loading { display: inline-flex }
+.btn-primary { background: hsl(var(--primary)); color: hsl(var(--primary-foreground)) }
+.btn-primary:hover:not(:disabled) { background: hsl(var(--primary) / .9) }
+.btn-secondary { background: hsl(var(--secondary)); color: hsl(var(--secondary-foreground)) }
+.btn-secondary:hover:not(:disabled) { background: hsl(var(--secondary) / .9) }
+.btn-outline { background: transparent; border-color: hsl(var(--border)); color: hsl(var(--foreground)) }
+.btn-outline:hover:not(:disabled) { background: hsl(var(--accent)); border-color: hsl(var(--primary)) }
+.btn-ghost { background: transparent; color: hsl(var(--muted-foreground)) }
+.btn-ghost:hover:not(:disabled) { background: hsl(var(--accent)); color: hsl(var(--foreground)) }
+.btn-destructive { background: hsl(var(--destructive)); color: hsl(var(--destructive-foreground)) }
+.btn-destructive:hover:not(:disabled) { background: hsl(var(--destructive) / .9) }
+.btn-link { background: transparent; color: hsl(var(--primary)); padding: .5rem 0 }
+.btn-link:hover { text-decoration: underline }
+
+/* Theme Toggle */
+.theme-toggle .sun { display: none }
+.theme-toggle .moon { display: block }
+:root:not(.dark) .theme-toggle .sun { display: block }
+:root:not(.dark) .theme-toggle .moon { display: none }
+.dark .theme-toggle .sun { display: block }
+.dark .theme-toggle .moon { display: none }
+
+/* ==========================================================================
+   Tabs
+   ========================================================================== */
+
+.tabs-container { width: 100% }
+.tabs-list { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: 2rem; border-bottom: 1px solid hsl(var(--border)); padding-bottom: .5rem }
+.tab { padding: .75rem 1.25rem; border: none; background: transparent; color: hsl(var(--muted-foreground)); font-family: inherit; font-weight: 500; font-size: .9rem; cursor: pointer; border-radius: .5rem; transition: all .15s; position: relative }
+.tab:hover { color: hsl(var(--foreground)); background: hsl(var(--accent)) }
+.tab[aria-selected="true"] { color: hsl(var(--primary)); background: hsl(var(--primary) / .1) }
+.tab[aria-selected="true"]::after { content: ""; position: absolute; bottom: -1.5px; left: 50%; transform: translateX(-50%); width: 60%; height: 2px; background: hsl(var(--primary)); border-radius: 2px 2px 0 0 }
+.tab-panel { animation: fadeIn .2s ease }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px) } to { opacity: 1; transform: none } }
+
+/* ==========================================================================
+   Accordion / FAQ
+   ========================================================================== */
+
+.accordion { display: flex; flex-direction: column; gap: .75rem }
+.accordion details { border: 1px solid hsl(var(--border)); border-radius: .5rem; background: hsl(var(--card)); overflow: hidden }
+.accordion summary { padding: 1.25rem 1.5rem; cursor: pointer; font-weight: 500; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem }
+.accordion summary::-webkit-details-marker { display: none }
+.accordion summary::after { content: ""; width: 20px; height: 20px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23A6A6A6' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") center / contain no-repeat; transition: transform .2s; flex-shrink: 0 }
+.accordion details[open] summary::after { transform: rotate(180deg) }
+.accordion .content { padding: 0 1.5rem 1.25rem; color: hsl(var(--muted-foreground)); line-height: 1.7 }
+
+/* ==========================================================================
+   Dialog
+   ========================================================================== */
+
+.dialog { border: none; border-radius: var(--radius); background: hsl(var(--card)); box-shadow: var(--shadow-xl); max-width: 90vw; padding: 0 }
+.dialog::backdrop { background: hsl(0 0% 0% / .6); backdrop-filter: blur(4px) }
+.dialog-body { padding: 1.5rem }
+.dialog-footer { display: flex; justify-content: flex-end; gap: .75rem; padding: 1rem 1.5rem; border-top: 1px solid hsl(var(--border)) }
+
+/* ==========================================================================
+   Dropdown
+   ========================================================================== */
+
+.dropdown { position: relative; display: inline-block }
+.dropdown-menu { position: absolute; top: 100%; right: 0; margin-top: .5rem; min-width: 200px; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: .5rem; box-shadow: var(--shadow-lg); padding: .5rem; display: none; z-index: 50 }
+.dropdown-menu a { display: block; padding: .6rem 1rem; border-radius: .375rem; font-size: .9rem; color: hsl(var(--foreground)) }
+.dropdown-menu a:hover { background: hsl(var(--accent)) }
+.dropdown.open .dropdown-menu { display: block }
+
+/* ==========================================================================
+   Table
+   ========================================================================== */
+
+.table-wrap { overflow-x: auto }
+.table { width: 100%; border-collapse: collapse; font-size: .875rem }
+.table th, .table td { padding: .75rem 1rem; text-align: left; border-bottom: 1px solid hsl(var(--border)) }
+.table th { font-weight: 600; color: hsl(var(--muted-foreground)); text-transform: uppercase; letter-spacing: .05em; font-size: .7rem }
+.table tr:hover td { background: hsl(var(--accent)) }
+
+/* ==========================================================================
+   Skeleton, Empty, Alert, Spinner
+   ========================================================================== */
+
+.skeleton { background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--accent)) 50%, hsl(var(--muted)) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: .375rem }
+@keyframes shimmer { 0% { background-position: 200% 0 } 100% { background-position: -200% 0 } }
+.empty { text-align: center; padding: 3rem; color: hsl(var(--muted-foreground)) }
+.empty svg { width: 48px; height: 48px; margin-bottom: 1rem; opacity: .5 }
+.alert { padding: 1rem 1.25rem; border-radius: .5rem; display: flex; align-items: flex-start; gap: .75rem }
+.alert-error { background: hsl(var(--destructive) / .1); border: 1px solid hsl(var(--destructive) / .3); color: hsl(var(--destructive)) }
+.alert-success { background: hsl(var(--success) / .1); border: 1px solid hsl(var(--success) / .3); color: hsl(var(--success)) }
+.spinner { width: 20px; height: 20px; border: 2px solid hsl(var(--border)); border-top-color: hsl(var(--primary)); border-radius: 50%; animation: spin .8s linear infinite }
+@keyframes spin { to { transform: rotate(360deg) } }
+
+/* ==========================================================================
+   Hero Section Variants
+   ========================================================================== */
+
+.hero-media { display: none }
+@media (min-width: 900px) {
+  .hero.has-media .hero-content { max-width: 55% }
+  .hero.has-media .hero-media { display: block; position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 50%; height: 85%; max-height: 700px; border-radius: var(--radius) 0 0 var(--radius); overflow: hidden; box-shadow: var(--shadow-xl) }
+  .hero.has-media .hero-media img { width: 100%; height: 100%; object-fit: cover }
+}
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+.footer { background: hsl(var(--card)); border-top: 1px solid hsl(var(--border)); padding: 4rem 0 2rem }
+.footer .logo-text { font-size: 1.5rem }
+
+/* ==========================================================================
+   Menu Specific
+   ========================================================================== */
+
+.menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem }
+.menu-item { background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: var(--radius); overflow: hidden; transition: all .2s ease }
+.menu-item:hover { border-color: hsl(var(--primary) / .3); box-shadow: var(--shadow-lg) }
+.menu-item-image { width: 100%; aspect-ratio: 16/10; object-fit: cover; background: hsl(var(--muted)) }
+.menu-item-content { padding: 1.25rem }
+.menu-item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; margin-bottom: .5rem }
+.menu-item-name { font-family: var(--font-display); font-size: 1.1rem; font-weight: 500 }
+.menu-item-price { color: hsl(var(--primary)); font-weight: 600; font-size: 1.1rem; white-space: nowrap }
+.menu-item-desc { color: hsl(var(--muted-foreground)); font-size: .9rem; line-height: 1.6 }
+.menu-item-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid hsl(var(--border)) }
+.menu-item-badges { display: flex; gap: .5rem; flex-wrap: wrap }
+.menu-item-add { padding: .5rem 1rem; font-size: .8rem }
+
+/* Order Form */
+#order-items-container .order-item { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: .5rem }
+.order-item-info { flex: 1 }
+.order-item-name { font-weight: 500 }
+.order-item-qty { display: flex; align-items: center; gap: .5rem; margin-top: .25rem }
+.qty-btn { width: 28px; height: 28px; border-radius: .375rem; border: 1px solid hsl(var(--border)); background: hsl(var(--input)); color: hsl(var(--foreground)); font-weight: 600; cursor: pointer }
+.qty-btn:hover { background: hsl(var(--accent)) }
+.qty-value { min-width: 24px; text-align: center; font-weight: 500 }
+.order-item-price { color: hsl(var(--primary)); font-weight: 600; white-space: nowrap }
+.order-item-remove { color: hsl(var(--muted-foreground)); background: none; border: none; padding: .25rem; cursor: pointer; font-size: 1.25rem; line-height: 1 }
+.order-item-remove:hover { color: hsl(var(--destructive)) }
+
+/* Reservation Form */
+#reserve-time option[value=""] { color: hsl(var(--muted-foreground)) }
+
+/* ==========================================================================
+   Map
+   ========================================================================== */
+
+#map { border-radius: var(--radius) var(--radius) 0 0 }
+
+/* ==========================================================================
+   Admin Specific (also in admin.html style block)
+   ========================================================================== */
+
+.badge-status { display: inline-flex; align-items: center; gap: .35rem; padding: .25rem .6rem; border-radius: 9999px; font-size: .7rem; font-weight: 600; text-transform: uppercase }
+.badge-status.pending { background: hsl(var(--warning) / .15); color: hsl(var(--warning)) }
+.badge-status.confirmed { background: hsl(var(--success) / .15); color: hsl(var(--success)) }
+.badge-status.preparing { background: hsl(var(--primary) / .15); color: hsl(var(--primary)) }
+.badge-status.ready { background: hsl(var(--success) / .15); color: hsl(var(--success)) }
+.badge-status.completed { background: hsl(var(--muted-foreground) / .15); color: hsl(var(--muted-foreground)) }
+.badge-status.cancelled { background: hsl(var(--destructive) / .15); color: hsl(var(--destructive)) }
+
+/* ==========================================================================
+   Motion Kit Utilities (sm-*)
+   ========================================================================== */
+
+.sm-mesh { position: relative; overflow: hidden }
+.sm-mesh::before { content: ""; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60' viewBox='0 0 60 60'%3E%3Cpath d='M0 30h60M30 0v60' stroke='%23C0C0C0' stroke-width='0.5' opacity='0.03'%3E%3C/path%3E%3C/svg%3E"); pointer-events: none }
+.sm-grain { position: relative }
+.sm-grain::after { content: ""; position: absolute; inset: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.02'/%3E%3C/svg%3E"); pointer-events: none; opacity: .5 }
+.sm-glass { background: hsl(var(--card) / .7); backdrop-filter: blur(16px); border: 1px solid hsl(var(--border) / .5) }
+.sm-beam { position: relative; overflow: hidden }
+.sm-beam::before { content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: conic-gradient(from 0deg, transparent, hsl(var(--primary) / .05), transparent 30%); animation: beamRotate 8s linear infinite; pointer-events: none }
+@keyframes beamRotate { to { transform: rotate(360deg) } }
+.sm-shine { position: relative; overflow: hidden }
+.sm-shine::after { content: ""; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, hsl(var(--primary) / .08), transparent); animation: shine 3s ease-in-out infinite; pointer-events: none }
+@keyframes shine { 100% { left: 200% } }
+.sm-grid { position: relative }
+.sm-grid::before { content: ""; position: absolute; inset: 0; background-image: linear-gradient(hsl(var(--primary) / .03) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / .03) 1px, transparent 1px); background-size: 60px 60px; pointer-events: none }
+.sm-glow { position: relative }
+.sm-glow::before { content: ""; position: absolute; inset: -2px; background: radial-gradient(ellipse at center, hsl(var(--primary) / .15) 0%, transparent 70%); border-radius: inherit; pointer-events: none; z-index: -1 }
+.sm-float { animation: float 6s ease-in-out infinite }
+@keyframes float { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-8px) } }
+
+/* ==========================================================================
+   Toast (Stak UI)
+   ========================================================================== */
+
+.toast-container { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 1000; display: flex; flex-direction: column; gap: .75rem }
+.toast { display: flex; align-items: center; gap: .75rem; padding: 1rem 1.25rem; background: hsl(var(--card)); border: 1px solid hsl(var(--border)); border-radius: .5rem; box-shadow: var(--shadow-lg); min-width: 280px; max-width: 400px; animation: slideIn .3s ease }
+.toast.success { border-left: 4px solid hsl(var(--success)) }
+.toast.error { border-left: 4px solid hsl(var(--destructive)) }
+.toast-icon { flex-shrink: 0; width: 20px; height: 20px }
+.toast-content { flex: 1 }
+.toast-title { font-weight: 600; font-size: .9rem }
+.toast-message { font-size: .85rem; color: hsl(var(--muted-foreground)); margin-top: .1rem }
+.toast-close { background: none; border: none; color: hsl(var(--muted-foreground)); cursor: pointer; padding: .25rem }
+@keyframes slideIn { from { opacity: 0; transform: translateX(100%) } to { opacity: 1; transform: none } }
+
+/* ==========================================================================
+     Utility Classes
+   ========================================================================== */
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0 }
+.text-center { text-align: center }
+.text-primary { color: hsl(var(--primary)) }
+.text-muted { color: hsl(var(--muted-foreground)) }
+.mt-1 { margin-top: .25rem }
+.mt-2 { margin-top: .5rem }
+.mt-3 { margin-top: 1rem }
+.mt-4 { margin-top: 1.5rem }
+.mb-1 { margin-bottom: .25rem }
+.mb-2 { margin-bottom: .5rem }
+.mb-3 { margin-bottom: 1rem }
+.mb-4 { margin-bottom: 1.5rem }
+
+/* ==========================================================================
+   Print Styles
+   ========================================================================== */
+
+@media print {
+  .navbar, .hero-scroll, .btn, .footer, .admin-sidebar { display: none !important }
+  .hero { min-height: auto; padding: 2rem 0 }
+  .section { padding: 2rem 0 }
+  body { background: white; color: black }
+  .card { border: 1px solid #ccc; box-shadow: none }
+}
