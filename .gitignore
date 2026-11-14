@@ -1,0 +1,13 @@
+node_modules/
+scratch/
+.env
+.env.*
+!.env.example
+.vercel
+data/
+*.db
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/app/*.jks

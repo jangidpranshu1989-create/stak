@@ -1,0 +1,5 @@
+<resources>
+  <string name="w_live">See your build progress live</string>
+  <string name="w_projects">Questions waiting for you and recent projects</string>
+  <string name="w_quick">Start a new build in one tap</string>
+</resources>

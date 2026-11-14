@@ -1,0 +1,4 @@
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+  <item android:id="@android:id/background"><shape><corners android:radius="4dp" /><solid android:color="#26FFFFFF" /></shape></item>
+  <item android:id="@android:id/progress"><clip><shape><corners android:radius="4dp" /><gradient android:startColor="#FF7A18" android:endColor="#FF2E63" /></shape></clip></item>
+</layer-list>

@@ -1,0 +1,28 @@
+plugins { id "com.android.application"; id "org.jetbrains.kotlin.android" }
+def baseUrl = project.findProperty("stak.baseUrl") ?: "https://stak.vercel.app"
+android {
+  namespace "app.stak.android"
+  compileSdk 34
+  defaultConfig {
+    applicationId "app.stak.android"
+    minSdk 26
+    targetSdk 34
+    versionCode 4
+    versionName "4.0"
+    buildConfigField "String", "BASE_URL", "\"${baseUrl}\""
+  }
+  buildFeatures { buildConfig true }
+  signingConfigs {
+    release {
+      storeFile file(project.findProperty("stak.keystore") ?: "stak-release.jks")
+      storePassword project.findProperty("stak.storePass") ?: "stakstak"
+      keyAlias "stak"
+      keyPassword project.findProperty("stak.keyPass") ?: "stakstak"
+    }
+  }
+  buildTypes {
+    release { minifyEnabled false; signingConfig signingConfigs.release }
+  }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+  kotlinOptions { jvmTarget = "17" }
+}
