@@ -11,6 +11,19 @@ import { LiveDock } from "@/components/live";
 import Home from "@/pages/home";
 import Workspace from "@/pages/workspace";
 import NotFound from "@/pages/not-found";
+import { useState } from "react";
+import { useSession } from "@/lib/session";
+import { Onboarding, isAppShell, onboarded } from "@/components/onboarding";
+
+// Native app / installed PWA: first launch shows welcome → account → notifications before the builder.
+function Gate({ children }: { children: React.ReactNode }) {
+  const { user, ready } = useSession();
+  const [done, setDone] = useState(() => !isAppShell() || onboarded());
+  if (done) return <>{children}</>;
+  if (!ready) return <div className="fixed inset-0 bg-background" />;
+  if (user && !user.guest) return <>{children}</>;
+  return <Onboarding onDone={() => setDone(true)} />;
+}
 
 export default function App() {
   return (
@@ -18,6 +31,7 @@ export default function App() {
       <SessionProvider>
       <LiveProvider>
         <TooltipProvider delayDuration={300}>
+          <Gate>
           <Router hook={useHashLocation}>
             <Switch>
               <Route path="/" component={Home} />
@@ -25,6 +39,7 @@ export default function App() {
               <Route component={NotFound} />
             </Switch>
           </Router>
+          </Gate>
           <AuthDialog />
           <LiveDock />
           <Toaster />

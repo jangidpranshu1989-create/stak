@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { api, siteUrl, zipUrl, type Access, type Project, type Version } from "@/lib/api";
+import { loadSiteDoc, saveSiteStore, validNavPath } from "@/lib/sitedoc";
 import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { timeAgo } from "@/components/chrome";
@@ -23,9 +24,20 @@ export function Preview({ project, onSelect, onError, building }: { project: Pro
   const [copied, setCopied] = useState(false);
   const frame = useRef<HTMLIFrameElement>(null);
   const tok = useRef<string | null>(null);
-  const url = siteUrl(project.id, project.version) + (nonce ? `&r=${nonce}` : "");
+  const [page, setPage] = useState("index.html");
+  const [doc, setDoc] = useState<string | null>(null);
+  const [failed, setFailed] = useState<string | null>(null);
+  const url = `${project.id}:${project.version}:${page}:${nonce}`;
 
-  useEffect(() => { setLoaded(false); }, [url]);
+  useEffect(() => { setPage("index.html"); }, [project.id]);
+  useEffect(() => {
+    let alive = true;
+    setLoaded(false); setFailed(null); setDoc(null);
+    loadSiteDoc(project.id, page, project.version)
+      .then((h) => { if (alive) setDoc(h); })
+      .catch((e) => { if (alive) { setFailed(String(e?.message || e)); setLoaded(true); } });
+    return () => { alive = false; };
+  }, [url]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // talk to the preview agent injected into /api/site pages
   useEffect(() => {
@@ -41,6 +53,10 @@ export function Preview({ project, onSelect, onError, building }: { project: Pro
       } else if (d.__stak === "select") {
         onSelect({ selector: String(d.selector || ""), html: String(d.html || ""), label: String(d.label || "element") });
         setPick(false);
+      } else if (d.__stak === "store" && d.ns === "ls" && d.data && typeof d.data === "object") {
+        saveSiteStore(project.id, d.data);
+      } else if (d.__stak === "nav" && validNavPath(d.path)) {
+        setPage(d.path || "index.html");
       } else if (d.__stak === "error") {
         onError(`${d.message}${d.source ? ` (${d.source}${d.line ? `:${d.line}` : ""})` : ""}`);
       }
@@ -72,18 +88,19 @@ export function Preview({ project, onSelect, onError, building }: { project: Pro
       </div>
       <div className={cn("relative min-h-0 flex-1 overflow-auto bg-muted/40", w && "p-4")}>
         {!loaded && <div className="absolute inset-0 grid place-items-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>}
-        <iframe
+        {failed && <div className="absolute inset-0 grid place-items-center p-6 text-center"><div><p className="text-sm font-medium">Preview couldn't load</p><p className="mt-1 text-xs text-muted-foreground">{failed}</p><Button variant="outline" size="sm" className="mt-3" onClick={() => setNonce(Date.now())}>Try again</Button></div></div>}
+        {doc !== null && <iframe
           ref={frame}
           key={url}
-          src={url}
+          srcDoc={doc}
           title="App preview"
           onLoad={() => setLoaded(true)}
           className={cn("block h-full w-full bg-white transition-opacity", w && "mx-auto rounded-xl border shadow-sm", loaded ? "opacity-100" : "opacity-0")}
           style={w ? { width: w, maxWidth: "100%", height: device === "mobile" ? 780 : "100%" } : undefined}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
+          sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"
           allow="clipboard-write; camera; microphone; geolocation"
           data-testid="iframe-preview"
-        />
+        />}
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ const JSZip = require("jszip");
 const webpush = require("web-push");
 const dns = require("dns").promises;
 const net = require("net");
+const V = require("./viewer");
 const { db, encrypt, decrypt, hashPass, checkPass, rid, token, J, bump, used, kvGet, kvSet, ROOT } = require("./db");
 const llm = require("./llm");
 const S = require("./site");
@@ -609,6 +610,7 @@ function sendAsset(res, pid, f) {
   }
   return false;
 }
+app.options(/^\/api\/site\//, (req, res) => { res.setHeader("Access-Control-Allow-Headers", "X-Stak-Raw"); res.setHeader("Access-Control-Allow-Methods", "GET"); res.status(204).end(); });
 app.get(/^\/api\/site\/([\w]+)(?:\/(.*))?$/, (req, res) => {
   const x = siteFiles(req.params[0]);
   if (!x) return res.status(404).type("text/plain").send("Site not found");
@@ -621,7 +623,12 @@ app.get(/^\/api\/site\/([\w]+)(?:\/(.*))?$/, (req, res) => {
   if (body === undefined) return res.status(404).type("text/plain").send("Not found");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("X-Content-Type-Options", "nosniff");
-  if (/\.html?$/i.test(f)) body = S.withPreviewAgent(S.withShim(String(body)));
+  if (/\.html?$/i.test(f)) {
+    res.setHeader("Vary", "X-Stak-Raw");
+    // Navigations get the sandboxing viewer; only script fetches (custom header, so never a navigation) get raw app HTML.
+    if (req.get("x-stak-raw") !== "1") { res.removeHeader("Content-Security-Policy"); return res.type("html").send(V.viewerPage(x.p.title)); }
+    body = V.withNav(S.withPreviewAgent(S.withShim(String(body))));
+  }
   res.type(S.mimeOf(f)).send(body);
 });
 

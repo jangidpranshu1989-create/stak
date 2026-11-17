@@ -315,3 +315,8 @@
     inset: -1px;
   }
 }
+
+/* Android app shell: feel native, not like a web page */
+html.native, html.native body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; }
+html.native button, html.native [role="button"], html.native a { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+html.native ::-webkit-scrollbar { display: none; }

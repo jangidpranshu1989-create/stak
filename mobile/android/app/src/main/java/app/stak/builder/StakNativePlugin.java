@@ -30,6 +30,20 @@ public class StakNativePlugin extends Plugin {
         call.resolve();
     }
 
+    @PluginMethod public void setChrome(PluginCall call) {
+        boolean dark = Boolean.TRUE.equals(call.getBoolean("dark", true));
+        int color;
+        try { color = android.graphics.Color.parseColor(call.getString("color", dark ? "#121110" : "#FBFAF9")); } catch (Exception e) { color = dark ? 0xFF121110 : 0xFFFBFAF9; }
+        Store.prefs(getContext()).edit().putBoolean("dark", dark).putInt("barColor", color).apply();
+        if (getActivity() instanceof MainActivity) ((MainActivity) getActivity()).applyChrome(dark, color);
+        call.resolve();
+    }
+
+    @PluginMethod public void haptic(PluginCall call) {
+        if (getActivity() != null) getActivity().runOnUiThread(() -> getBridge().getWebView().performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK));
+        call.resolve();
+    }
+
     @PluginMethod public void startLive(PluginCall call) { LiveService.start(getContext()); call.resolve(); }
 
     @PluginMethod public void notify(PluginCall call) {

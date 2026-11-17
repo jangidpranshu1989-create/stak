@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/lib/session";
+import { native } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { NotifyButton } from "@/components/live";
 
@@ -30,6 +31,16 @@ export function applyTheme(t: "light" | "dark") {
   themeState = t;
   document.documentElement.classList.toggle("dark", t === "dark");
   themeSubs.forEach((f) => f(t));
+  syncNativeChrome();
+}
+// Android app: paint the status/navigation bars to match the current background.
+export function syncNativeChrome() {
+  const n = native(); if (!n) return;
+  requestAnimationFrame(() => {
+    const m = getComputedStyle(document.body).backgroundColor.match(/\d+(\.\d+)?/g);
+    const hex = m ? "#" + m.slice(0, 3).map((v) => Math.round(Number(v)).toString(16).padStart(2, "0")).join("") : undefined;
+    n.setChrome({ dark: document.documentElement.classList.contains("dark"), color: hex }).catch(() => {});
+  });
 }
 export function useTheme() {
   const [t, setT] = useState(themeState);

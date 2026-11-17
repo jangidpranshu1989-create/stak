@@ -32,7 +32,7 @@ const EVENT_TEXT: Record<string, (e: LiveEvent) => { title: string; body: string
 
 const swOk = () => { try { return "serviceWorker" in navigator && window.top === window.self && location.protocol === "https:"; } catch { return false; } };
 const notifOk = () => typeof window !== "undefined" && "Notification" in window;
-function currentPerm(): Perm { if (isNative()) return "granted"; return notifOk() ? (Notification.permission as Perm) : "unsupported"; }
+function currentPerm(): Perm { if (isNative()) return "default"; return notifOk() ? (Notification.permission as Perm) : "unsupported"; }
 
 async function swReg(): Promise<ServiceWorkerRegistration | null> {
   if (!swOk()) return null;
@@ -65,6 +65,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const last = useRef<number | null>(null);
   const tick = useRef(0);
   const wasBuilding = useRef(false);
+  useEffect(() => { native()?.status().then((r: any) => setPerm(r?.notifications ? "granted" : "default")).catch(() => {}); }, []);
 
   const poll = useCallback(async () => {
     if (!user) return;
