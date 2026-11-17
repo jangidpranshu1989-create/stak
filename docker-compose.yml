@@ -1,0 +1,12 @@
+services:
+  stak:
+    build: .
+    ports: ["5000:5000"]
+    env_file: .env
+    environment:
+      STAK_DATA_DIR: /data
+      STAK_TRUST_PROXY: "1"
+    volumes: ["stak-data:/data"]
+    restart: unless-stopped
+volumes:
+  stak-data:

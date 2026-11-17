@@ -1,0 +1,25 @@
+{
+  "name": "stak",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Stak — intent-aware AI app builder. Describe it, Stak builds a working app, tool, game or website with a real backend.",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "build": "npm --prefix client run build",
+    "build:all": "npm --prefix client ci && npm --prefix client run build",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.7.0",
+    "express": "^4.21.2",
+    "jszip": "^3.10.1",
+    "undici": "^6.29.1",
+    "web-push": "^3.6.7"
+  },
+  "license": "MIT"
+}

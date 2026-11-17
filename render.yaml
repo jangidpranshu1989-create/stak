@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: stak
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    disk: { name: stak-data, mountPath: /data, sizeGB: 1 }
+    envVars:
+      - { key: STAK_DATA_DIR, value: /data }
+      - { key: STAK_TRUST_PROXY, value: "1" }
+      - { key: STAK_SECRET, generateValue: true }
+      - { key: GROQ_API_KEY, sync: false }
+      - { key: NVIDIA_API_KEY, sync: false }
