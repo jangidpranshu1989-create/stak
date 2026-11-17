@@ -6,6 +6,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SessionProvider } from "@/lib/session";
 import { AuthDialog } from "@/components/chrome";
+import { LiveProvider } from "@/lib/live";
+import { LiveDock } from "@/components/live";
 import Home from "@/pages/home";
 import Workspace from "@/pages/workspace";
 import NotFound from "@/pages/not-found";
@@ -14,6 +16,7 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <SessionProvider>
+      <LiveProvider>
         <TooltipProvider delayDuration={300}>
           <Router hook={useHashLocation}>
             <Switch>
@@ -23,8 +26,10 @@ export default function App() {
             </Switch>
           </Router>
           <AuthDialog />
+          <LiveDock />
           <Toaster />
         </TooltipProvider>
+      </LiveProvider>
       </SessionProvider>
     </QueryClientProvider>
   );

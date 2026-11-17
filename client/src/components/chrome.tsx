@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/lib/session";
 import { cn } from "@/lib/utils";
+import { NotifyButton } from "@/components/live";
 
 export function Logo({ className, withWord = true }: { className?: string; withWord?: boolean }) {
   return (
@@ -81,6 +82,7 @@ export function TopBar({ children, right }: { children?: React.ReactNode; right?
       <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
       <div className="flex items-center gap-1">
         {right}
+        <NotifyButton />
         <ThemeToggle />
         <AccountButton />
       </div>

@@ -1,0 +1,9 @@
+{
+  "name": "stak-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stak Android app (Capacitor shell + native widget, live tracker, background sync)",
+  "scripts": { "sync": "cap sync android" },
+  "dependencies": { "@capacitor/android": "^7.0.0", "@capacitor/core": "^7.0.0" },
+  "devDependencies": { "@capacitor/cli": "^7.0.0" }
+}

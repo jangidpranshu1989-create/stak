@@ -19,9 +19,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [authOpen, setAuthOpen] = useState(false);
 
   useEffect(() => {
-    api<{ user: User; token: string }>("GET", "/api/auth/me")
-      .then((r) => { setToken(r.token); setUser(r.user); })
-      .catch(() => {})
+    api<{ user: User | null; token: string | null }>("GET", "/api/auth/me")
+      .then((r) => { setToken(r.user ? r.token : null); setUser(r.user); })
+      .catch((e) => { if (e?.status === 401) setToken(null); })
       .finally(() => setReady(true));
   }, []);
 

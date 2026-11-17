@@ -150,7 +150,7 @@ app.post("/api/auth/logout", (req, res) => {
 
 app.get("/api/auth/me", (req, res) => {
   const x = sessionFrom(req, true);
-  if (!x) return bad(res, 401, "Not signed in");
+  if (!x) return res.json({ user: null, token: null }); // no session yet is a normal state, not an error
   res.json({ user: pubUser(x.u), token: x.s.token });
 });
 

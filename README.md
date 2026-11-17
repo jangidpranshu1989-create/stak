@@ -69,3 +69,22 @@ For client development, run `cd client && npm run dev`. This starts Vite on 5173
 - One server instance only. Horizontal scaling needs Postgres and a shared queue.
 
 See `docs/` for the architecture, security model and API reference.
+
+## Live app, PWA and Android
+
+- Live: https://stak-ai.pplx.app (web + installable PWA: browser menu → "Install app" / "Add to Home screen").
+- Real-time: the UI polls `/api/mobile/summary` + `/api/mobile/events` every 3 s (20 s in background) and shows a floating live tracker, toasts, and system notifications. Web Push (VAPID) delivers "build ready / needs answers / failed" even when the tab is closed — tap the bell in the top bar to enable it.
+- Android app (`mobile/`): Capacitor shell that loads the live site, plus native code in `mobile/android/app/src/main/java/app/stak/builder/`:
+  - `StakWidget` — 2x2 resizable home-screen widget: live build phase, progress bar and timer, current/latest project, building/ready/ask counts, last event, refresh button.
+  - `LiveService` — foreground "live tracking" notification that updates every 3 s while a build runs and stops itself afterwards.
+  - `SyncWorker` — WorkManager background sync every 15 min (Android minimum) that posts notifications and refreshes the widget when the app is closed.
+  - `StakNativePlugin` — JS bridge (`window.Capacitor.Plugins.StakNative`) used by the web app to hand over the session and summary.
+- Download the APK from [Releases](../../releases). Build it yourself: `cd mobile && npm install && npx cap sync android && cd android && ./gradlew assembleDebug` (JDK 21 + Android SDK 35). Release signing reads `STAK_KEYSTORE`, `STAK_KEYSTORE_PASSWORD`, `STAK_KEY_ALIAS`, `STAK_KEY_PASSWORD` from the environment; the keystore is never committed.
+
+### Testing checklist
+
+1. Web: open the live URL → type a prompt → answer the questions → watch steps → open preview, test the app (add data, AI chat), download ZIP.
+2. Live tracker: start a build, go back to Home → the floating pill shows phase, % and timer; a toast appears when it's ready.
+3. Notifications: tap the bell → allow → start a build → switch tab / close it → system notification arrives.
+4. Android: install the APK (allow "install unknown apps"), open it, allow notifications, long-press home screen → Widgets → Stak live (2x2). Start a build → ongoing progress notification + widget update live.
+5. API: `curl https://stak-ai.pplx.app/port/5000/api/health`; server tests: `npm test`.

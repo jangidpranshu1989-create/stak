@@ -27,8 +27,19 @@ function visitorId(): string {
 }
 export const VISITOR = visitorId();
 
-let token: string | null = null;
-export const setToken = (t: string | null) => { token = t; };
+// Signed-in sessions survive reloads (and the Android app) via localStorage when the host allows it.
+const TK = "stak_token";
+let token: string | null = (() => { try { return localStorage.getItem(TK); } catch { return null; } })();
+export const setToken = (t: string | null) => {
+  token = t;
+  try { if (t) localStorage.setItem(TK, t); else localStorage.removeItem(TK); } catch { /* storage blocked */ }
+  native()?.setSession({ token: t || "", api: new URL(API || "/", location.href).href.replace(/\/$/, "") }).catch(() => {});
+};
+// Capacitor bridge (Android app): lets the widget, live tracker and background sync use this session.
+export function native(): any {
+  try { const c = (window as any).Capacitor; return c?.isNativePlatform?.() ? c.Plugins?.StakNative || null : null; } catch { return null; }
+}
+export const isNative = () => !!native();
 export const getToken = () => token;
 
 export class ApiError extends Error {
