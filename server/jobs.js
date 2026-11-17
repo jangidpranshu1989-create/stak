@@ -14,6 +14,7 @@ const WEB = require("./search");
 const INTENT = require("./intent");
 const CFG = require("./config");
 const TPL = require("./templates");
+const TW = require("./tw");
 
 const jobs = new Map(); // id -> live job
 let running = 0;
@@ -289,8 +290,13 @@ function briefFrom(project, { answers, notes, skip, questions }) {
 
 // ============ QA ============
 // returns { files, fixed, issues:[{file,problem,kind,severity}], security, review, rules }
-async function inspect(files, title, { kind, prompt, rules }) {
+async function inspect(files, title, { kind, prompt, rules, tw = true }) {
+  if (tw) files = await TW.apply(S.withKit(files), { force: true });
   const v = await S.verifyFull(files, title, { kind, prompt });
+  if (tw) {
+    const miss = TW.undefinedClasses(v.files);
+    if (miss.length >= 3) v.remaining.push({ file: "index.html", kind: "design", problem: `${miss.length} CSS classes are used in the markup but defined nowhere, so those elements render unstyled: ${miss.slice(0, 18).join(", ")}`, fix: "replace them with Tailwind utilities or Stak kit classes (e.g. .btn is already the primary button), or define them in styles.css" });
+  }
   const sec = SEC.scan(v.files, { rules: v.rules || rules });
   const issues = [
     ...v.remaining.map((r) => ({ ...r, kind: r.kind || "code", severity: r.kind === "intent" ? "high" : "medium" })),
@@ -298,6 +304,8 @@ async function inspect(files, title, { kind, prompt, rules }) {
   ];
   return { files: v.files, fixed: v.fixed, issues, rules: v.rules, security: { ...SEC.grade(sec), issues: sec } };
 }
+// fatal issues (app can't run) outweigh any number of cosmetic ones
+const weight = (list) => list.reduce((n, i) => n + (/syntax error|runtime error|nothing calls them|empty screen|wrong kind/i.test(i.problem) ? 25 : i.severity === "high" ? 6 : i.kind === "design" ? 2 : 3), 0);
 const issueKey = (i) => `${i.file}|${i.kind}|${String(i.problem).replace(/\d+/g, "#").slice(0, 90)}`;
 
 async function review(job, files, blueprint, used, { only, id = "review", label = "AI acceptance review" } = {}) {
@@ -305,7 +313,11 @@ async function review(job, files, blueprint, used, { only, id = "review", label 
   if (!list.length) return null;
   step(job, id, label);
   try {
-    const code = P.filesBlock(Object.fromEntries(Object.entries(files).filter(([p]) => /\.(html|js|json)$/.test(p) && !p.startsWith("stak"))), 22000);
+    // logic first (app.js decides most checks), markup trimmed of inline SVG/CSS noise; never silently drop app.js
+    const slim = (p, c) => (/\.html?$/.test(p) ? String(c).replace(/<svg[\s\S]*?<\/svg>/gi, "<svg/>").replace(/<style[\s\S]*?<\/style>/gi, "").replace(/<!--[\s\S]*?-->/g, "").replace(/\n\s*\n+/g, "\n") : String(c).replace(/^\s*\/\/.*$/gm, "").replace(/\n\s*\n+/g, "\n"));
+    const picked = Object.entries(files).filter(([p]) => /\.(html|js|json)$/.test(p) && !p.startsWith("stak")).sort(([a], [b]) => (/\.js$/.test(b) ? 1 : 0) - (/\.js$/.test(a) ? 1 : 0)).map(([p, c]) => [p, slim(p, c)]);
+    const code = P.filesBlock(Object.fromEntries(picked), 48000);
+    if (/\(omitted: too large\)/.test(code)) { step(job, id, null, "skip", "project too large for the reviewer"); return null; }
     const r = await call(job, used.kind === "user" ? PRO : used, {
       role: "fast", system: P.REVIEW_SYSTEM, maxTokens: 1500, temperature: 0, maxAttempts: 3, continuable: false,
       messages: [{ role: "user", content: `ACCEPTANCE CHECKLIST:\n${list.slice(0, 10).map((a) => "- " + a).join("\n")}\n\nCODE:\n${code}` }], onText: null,
@@ -338,8 +350,9 @@ function applyOutput(files, out) {
 // QA + capped repair loop. `baseline` (edit mode) = issue keys that existed before the edit; only new ones are repaired.
 async function qa(job, files, ctx) {
   const { title, kind, prompt, blueprint, used, baseline } = ctx;
+  const tw = !job.template;
   step(job, "qa", "Testing the code");
-  let cur = await inspect(files, title, { kind, prompt });
+  let cur = await inspect(files, title, { kind, prompt, tw });
   let fixedAuto = cur.fixed;
   const reviewed = blueprint && !baseline ? await review(job, cur.files, blueprint, used) : null;
   const target = (list) => list.filter((i) => !baseline || !baseline.has(issueKey(i))).filter((i) => i.severity !== "low");
@@ -362,10 +375,10 @@ async function qa(job, files, ctx) {
       });
       const applied = applyOutput(cur.files, r.text);
       if (applied.failed.length) job.notes.push(`Repair: ${applied.failed.length} patch(es) didn't apply cleanly`);
-      const next = await inspect(applied.files, title, { kind, prompt });
+      const next = await inspect(applied.files, title, { kind, prompt, tw });
       const before = new Set(cur.issues.map(issueKey)), after = new Set(next.issues.map(issueKey));
       const gone = [...before].filter((k) => !after.has(k)).length, added = [...after].filter((k) => !before.has(k)).length;
-      if (next.issues.length <= cur.issues.length || gone > added) { // keep only improvements
+      if (weight(next.issues) < weight(cur.issues) || (weight(next.issues) === weight(cur.issues) && gone > added)) { // keep only real improvements — a "fix" that breaks the app never ships
         repaired += Math.max(0, gone - added);
         fixedAuto += next.fixed;
         cur = next;
@@ -502,7 +515,13 @@ function startBuild({ project, userId, lang, wanted, msgId, brief, label = "Buil
 
       // 3) build
       step(job, "build", "Writing the code");
-      const userMsg = brief + web + P.blueprintBlock(blueprint) + `\n${P.BUILD_LINE(job.kind, lang)}`;
+      // keep the whole request inside an 8k tokens-per-minute bucket (Groq free tier): research is the most expendable part
+      const sys0 = P.BUILD_SYSTEM(lang, job.kind), tail = P.blueprintBlock(blueprint) + `\n${P.BUILD_LINE(job.kind, lang)}`;
+      const LL = require("./llm");
+      let webFit = web;
+      for (const cap of [2200, 900, 0]) { if (LL.estTokens([{ content: brief + webFit + tail }], sys0) <= 7300) break; webFit = cap ? web.slice(0, cap) + "\n" : ""; }
+      const userMsg = brief + webFit + tail;
+      console.log(`[build] prompt ≈ ${LL.estTokens([{ content: userMsg }], sys0)} tokens (research ${webFit.length}/${web.length} chars)`);
       res = await withFallback(job, model, async (m) => {
         let startLen = job.text.length, last = 0;
         const r = await call(job, m, {

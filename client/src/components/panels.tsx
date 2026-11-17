@@ -13,10 +13,13 @@ import { timeAgo } from "@/components/chrome";
 import { cn } from "@/lib/utils";
 
 export type Selection = { selector: string; html: string; label: string };
+export type AuditIssue = { kind: string; selector: string; label: string; problem: string };
 type Device = "desktop" | "tablet" | "mobile";
 const DEVICE_W: Record<Device, number | null> = { desktop: null, tablet: 820, mobile: 390 };
 
-export function Preview({ project, onSelect, onError, building }: { project: Project; onSelect: (s: Selection) => void; onError: (e: string) => void; building: boolean }) {
+export function Preview({ project, onSelect, onError, onAudit, building }: { project: Project; onSelect: (s: Selection) => void; onError: (e: string) => void; onAudit?: (version: number, width: number, issues: AuditIssue[]) => void; building: boolean }) {
+  const probe = useRef<HTMLIFrameElement>(null);
+  const [probed, setProbed] = useState<string | null>(null);
   const [device, setDevice] = useState<Device>("desktop");
   const [pick, setPick] = useState(false);
   const [nonce, setNonce] = useState(0);
@@ -42,8 +45,14 @@ export function Preview({ project, onSelect, onError, building }: { project: Pro
   // talk to the preview agent injected into /api/site pages
   useEffect(() => {
     const onMsg = async (e: MessageEvent) => {
-      if (e.source !== frame.current?.contentWindow) return;
       const d = e.data || {};
+      // hidden 390px copy of the app: only its layout report matters
+      if (probe.current && e.source === probe.current.contentWindow) {
+        if (d.__stak === "audit") { onAudit?.(project.version, Number(d.width) || 390, Array.isArray(d.issues) ? d.issues.slice(0, 8) : []); setProbed(url); }
+        return;
+      }
+      if (e.source !== frame.current?.contentWindow) return;
+      if (d.__stak === "audit") { if (page === "index.html") onAudit?.(project.version, Number(d.width) || 0, Array.isArray(d.issues) ? d.issues.slice(0, 8) : []); return; }
       if (d.__stak === "hello") {
         try {
           if (!tok.current) tok.current = (await api<{ token: string }>("POST", `/api/projects/${project.id}/preview-token`)).token;
@@ -63,7 +72,7 @@ export function Preview({ project, onSelect, onError, building }: { project: Pro
     };
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-  }, [project.id, pick, onSelect, onError]);
+  }, [project.id, project.version, pick, page, url, onSelect, onError, onAudit]);
 
   useEffect(() => { frame.current?.contentWindow?.postMessage({ __stak: "pick", on: pick }, "*"); }, [pick]);
 
@@ -100,6 +109,17 @@ export function Preview({ project, onSelect, onError, building }: { project: Pro
           sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-modals allow-downloads"
           allow="clipboard-write; camera; microphone; geolocation"
           data-testid="iframe-preview"
+        />}
+        {doc !== null && !w && !building && page === "index.html" && probed !== url && onAudit && <iframe
+          ref={probe}
+          key={`probe:${url}`}
+          srcDoc={doc}
+          title="Mobile layout check"
+          aria-hidden="true"
+          tabIndex={-1}
+          className="pointer-events-none absolute left-[-10000px] top-0"
+          style={{ width: 390, height: 844 }}
+          sandbox="allow-scripts"
         />}
       </div>
     </div>

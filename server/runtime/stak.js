@@ -50,6 +50,7 @@
     __v: 3, project: PID,
     auth: {
       get user(){ return user; },
+      get uid(){ return user ? (user.id || user.uid || user.email) : 'anon:' + ANON; }, // stable id for the current visitor (signed in or anonymous device)
       get isAdmin(){ return admin || !!(user && user.role === 'admin'); },
       get role(){ return admin ? 'admin' : (user && user.role) || (user ? 'user' : 'anon'); },
       signUp: function(o){ return call('POST', '/auth/signup', o).then(function(r){ token = r.token; user = r.user; admin = admin || !!r.admin; persist(); return user; }); },

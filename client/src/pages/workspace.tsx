@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowUp, Loader2, X, MousePointerClick, AlertTriangle, Eye, Code2, Database, History, Settings2, MessageSquare, Download } from "lucide-react";
+import { ArrowUp, Loader2, X, MousePointerClick, AlertTriangle, LayoutTemplate, Eye, Code2, Database, History, Settings2, MessageSquare, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { TopBar, KIND_LABEL } from "@/components/chrome";
 import { MessageView, QuestionStepper, LiveBuild, Md } from "@/components/thread";
-import { Preview, CodeView, CloudView, HistoryView, SettingsView, type Selection } from "@/components/panels";
+import { Preview, CodeView, CloudView, HistoryView, SettingsView, type Selection, type AuditIssue } from "@/components/panels";
 import { api, zipUrl, type JobView, type Message, type Project, type Version } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useToast } from "@/hooks/use-toast";
@@ -35,6 +35,8 @@ export default function Workspace() {
   const [sending, setSending] = useState(false);
   const [stopping, setStopping] = useState(false);
   const [errs, setErrs] = useState<string[]>([]);
+  // visual layout check reported by the preview (desktop frame + hidden 390px frame), per version
+  const [audit, setAudit] = useState<{ v: number; by: Record<string, AuditIssue[]> }>({ v: 0, by: {} });
   const endRef = useRef<HTMLDivElement>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
 
@@ -83,12 +85,12 @@ export default function Workspace() {
     finally { setSending(false); }
   };
 
-  const send = async (msg?: string) => {
+  const send = async (msg?: string, via?: string) => {
     const t = (msg ?? text).trim();
     if (!t || busy || sending) return;
     setSending(true);
     try {
-      const r = await api<{ jobId: string }>("POST", `/api/projects/${id}/messages`, { text: t, selection: sel || undefined, via: sel ? "select" : "text" });
+      const r = await api<{ jobId: string }>("POST", `/api/projects/${id}/messages`, { text: t, selection: sel || undefined, via: via || (sel ? "select" : "text") });
       setText(""); setSel(null);
       await q.refetch(); setJobId(r.jobId); setMobileView("chat");
     } catch (e: any) { toast({ title: "Couldn't send", description: e.message, variant: "destructive" }); }
@@ -111,6 +113,26 @@ export default function Workspace() {
   };
 
   const onSelect = useCallback((s: Selection) => { setSel(s); setMobileView("chat"); setTimeout(() => ta.current?.focus(), 50); }, []);
+  const onAudit = useCallback((v: number, w: number, issues: AuditIssue[]) => {
+    setAudit((a) => ({ v, by: { ...(a.v === v ? a.by : {}), [w <= 520 ? "mobile" : "desktop"]: issues } }));
+  }, []);
+  const layoutIssues = useMemo(() => Object.entries(audit.by).flatMap(([vp, list]) => list.map((i) => ({ ...i, vp }))), [audit]);
+  const fixLayout = useCallback((auto: boolean) => {
+    const lines = layoutIssues.slice(0, 10).map((i) => `- [${i.vp}] \`${i.selector}\`${i.label ? ` ("${i.label}")` : ""} ${i.problem}`);
+    try { localStorage.setItem(`stak_autofix_${id}`, String(audit.v)); } catch {}
+    setAudit({ v: audit.v, by: {} });
+    send(`${auto ? "Stak's visual check found layout problems after the build. " : ""}Fix these layout problems (keep the design and all features exactly as they are, only fix sizing/overflow/styling):\n${lines.join("\n")}`, auto ? "audit" : "text");
+  }, [layoutIssues, audit.v, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  // auto-polish once per fresh build: never on a version that itself came from an auto-fix (no loops)
+  useEffect(() => {
+    if (!p || busy || !layoutIssues.length || audit.v !== p.version) return;
+    const serious = layoutIssues.filter((i) => i.kind === "overflow" || i.kind === "clipped" || i.kind === "unstyled");
+    if (!serious.length) return;
+    let last = 0; try { last = Number(localStorage.getItem(`stak_autofix_${id}`)) || 0; } catch {}
+    if (last && p.version <= last + 1) return;
+    const t = setTimeout(() => fixLayout(true), 2500);
+    return () => clearTimeout(t);
+  }, [layoutIssues, audit.v, p?.version, busy]); // eslint-disable-line react-hooks/exhaustive-deps
   const onError = useCallback((e: string) => !/^Script error\.?/i.test(e) && setErrs((x) => (x.includes(e) ? x : [...x, e].slice(-5))), []);
 
   if (q.error) {
@@ -143,6 +165,14 @@ export default function Workspace() {
           <div className="min-w-0 flex-1"><div className="font-medium">{errs.length} error{errs.length > 1 ? "s" : ""} in the preview</div><div className="truncate font-mono text-xs text-muted-foreground">{errs[errs.length - 1]}</div></div>
           <Button size="sm" variant="outline" className="h-8 shrink-0" onClick={() => { send(`Fix these runtime errors from the preview:\n${errs.map((e) => "- " + e).join("\n")}`); setErrs([]); }} data-testid="button-fix-errors">Fix</Button>
           <button className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted" onClick={() => setErrs([])} aria-label="Dismiss"><X className="h-4 w-4" /></button>
+        </div>
+      )}
+      {layoutIssues.length > 0 && audit.v === p.version && hasSite && !busy && errs.length === 0 && (
+        <div className="mx-3 mb-2 flex items-start gap-2 rounded-xl border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm" data-testid="banner-layout-issues">
+          <LayoutTemplate className="mt-0.5 h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+          <div className="min-w-0 flex-1"><div className="font-medium">{layoutIssues.length} layout issue{layoutIssues.length > 1 ? "s" : ""} found</div><div className="truncate text-xs text-muted-foreground">{layoutIssues[0].vp}: {layoutIssues[0].label || layoutIssues[0].selector} {layoutIssues[0].problem}</div></div>
+          <Button size="sm" variant="outline" className="h-8 shrink-0" onClick={() => fixLayout(false)} data-testid="button-fix-layout">Fix</Button>
+          <button className="grid h-8 w-8 place-items-center rounded-md text-muted-foreground hover:bg-muted" onClick={() => { try { localStorage.setItem(`stak_autofix_${id}`, String(audit.v)); } catch {} setAudit({ v: audit.v, by: {} }); }} aria-label="Dismiss"><X className="h-4 w-4" /></button>
         </div>
       )}
       <form className="border-t p-3" onSubmit={(e) => { e.preventDefault(); send(); }} data-testid="form-chat">
@@ -179,7 +209,7 @@ export default function Workspace() {
     <section className="flex h-full min-h-0 flex-col" aria-label="Your app">
       {tabs}
       <div className="min-h-0 flex-1">
-        {tab === "preview" && (hasSite ? <Preview project={p} onSelect={onSelect} onError={onError} building={busy} /> : <BuildingPlaceholder busy={busy} job={job} />)}
+        {tab === "preview" && (hasSite ? <Preview project={p} onSelect={onSelect} onError={onError} onAudit={onAudit} building={busy} /> : <BuildingPlaceholder busy={busy} job={job} />)}
         {tab === "code" && <CodeView files={p.files} live={busy && live ? live : undefined} />}
         {tab === "cloud" && <CloudView project={p} />}
         {tab === "history" && <HistoryView project={p} versions={d!.versions} busy={busy} onRestored={() => q.refetch()} />}

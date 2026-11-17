@@ -40,7 +40,7 @@
     else if (t.hasAttribute("data-nav-toggle")) { var n = d.getElementById(t.getAttribute("aria-controls")) || d.querySelector(".mobile-nav"); if (n) { var open = n.dataset.open !== "true"; n.dataset.open = open; t.setAttribute("aria-expanded", open); } }
     else if (t.matches(".mobile-nav a")) { var mn = t.closest(".mobile-nav"); mn.dataset.open = "false"; }
     else if (t.hasAttribute("data-dialog-open")) { var dl = d.getElementById(t.getAttribute("data-dialog-open")); dl && dl.showModal && dl.showModal(); }
-    else if (t.hasAttribute("data-dialog-close")) { var c = t.closest("dialog"); c && c.close(); }
+    else if (t.hasAttribute("data-dialog-close")) { var c = t.getAttribute("data-dialog-close") && d.getElementById(t.getAttribute("data-dialog-close")) || t.closest("dialog"); c && c.close(); }
     else if (t.hasAttribute("data-dropdown")) { var dd = t.closest(".dropdown"); dd.dataset.open = dd.dataset.open !== "true"; t.setAttribute("aria-expanded", dd.dataset.open); }
     else if (t.classList.contains("tab")) { var w = t.closest("[data-tabs]"); if (!w) return; var id = t.dataset.tab;
       w.querySelectorAll(".tab").forEach(function (b) { b.setAttribute("aria-selected", b === t); b.setAttribute("tabindex", b === t ? "0" : "-1"); });
@@ -53,7 +53,21 @@
     var n = tabs[(i + tabs.length) % tabs.length]; n.focus(); n.click();
   });
   d.addEventListener("click", function (e) { var dl = e.target; if (dl.tagName === "DIALOG" && dl.classList.contains("dialog")) { var r = dl.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) dl.close(); } });
-  function init() { d.querySelectorAll("[data-tabs]").forEach(function (w) { var first = w.querySelector('.tab[aria-selected="true"]') || w.querySelector(".tab"); first && first.click(); });
+  // Models often write <div class="dialog"> instead of <dialog>: upgrade it so it starts hidden, opens as a real modal
+  // via [data-dialog-open] / showModal(), and still reacts when app code toggles an "open"/"show"/"active" class.
+  function upgradeDialogs() {
+    d.querySelectorAll(".dialog:not(dialog), .modal:not(dialog)").forEach(function (el) {
+      if (el.closest("dialog")) return;
+      var dl = d.createElement("dialog");
+      for (var i = 0; i < el.attributes.length; i++) { var a = el.attributes[i]; if (a.name !== "role" && a.name !== "aria-modal" && a.name !== "hidden" && a.name !== "style") dl.setAttribute(a.name, a.value); }
+      dl.classList.add("dialog"); dl.classList.remove("open", "show", "active", "is-open", "hidden", "flex");
+      while (el.firstChild) dl.appendChild(el.firstChild);
+      el.parentNode.replaceChild(dl, el);
+      var opened = function () { return /\b(open|show|active|is-open)\b/.test(dl.className); };
+      try { new MutationObserver(function () { if (opened() && !dl.open) { try { dl.showModal(); } catch (e) { dl.setAttribute("open", ""); } } else if (!opened() && dl.open && dl.__byClass) dl.close(); dl.__byClass = opened(); }).observe(dl, { attributes: true, attributeFilter: ["class"] }); } catch (e) {}
+    });
+  }
+  function init() { upgradeDialogs(); d.querySelectorAll("[data-tabs]").forEach(function (w) { var first = w.querySelector('.tab[aria-selected="true"]') || w.querySelector(".tab"); first && first.click(); });
     d.querySelectorAll(".tabs-list").forEach(function (l) { l.setAttribute("role", "tablist"); l.querySelectorAll(".tab").forEach(function (b) { b.setAttribute("role", "tab"); }); }); }
   if (d.readyState === "loading") d.addEventListener("DOMContentLoaded", init); else init();
   window.ui = { toast: toast, loading: loading, timeAgo: timeAgo, validate: validate, theme: theme };

@@ -66,14 +66,44 @@ Extra pages (e.g. admin.html) go right after index.html.`;
 
 const SANDBOX_DOC = `RUNTIME RULES (the preview is a sandboxed iframe): no service workers, no manifest.json, no IndexedDB. localStorage/sessionStorage are shimmed but per-tab only — use stak.db for anything that must persist. Load scripts with defer. CDN libraries are allowed when they clearly help (https://cdn.jsdelivr.net/npm/…, e.g. qrcode, chart.js, leaflet, three, marked, dompurify) — load them with a <script src> BEFORE app.js and check they exist before use. Always use the browser (UMD/min) build, never a CommonJS/ESM file ("require is not defined"): highlight.js → https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.9.0/highlight.min.js, marked → https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js. Hide inactive tabs/panels with the hidden attribute or a .hidden class (both are display:none in stak-ui.css).`;
 
-const UI_KIT_DOC = `STAK UI KIT (hosted; never output these files): in <head> <link rel="stylesheet" href="stak-ui.css"> BEFORE styles.css, and <script src="stak-ui.js" defer></script> before app.js.
-Theme in styles.css with HSL tokens (space-separated "H S% L%"): :root{--primary:24 95% 53%;--primary-foreground:0 0% 100%;--background:…;--foreground:…;--radius:.75rem;--font-sans:"Inter",system-ui;--font-display:"…"} and .dark{…}. Tokens: --background --foreground --card --muted --muted-foreground --accent --primary --secondary --destructive --success --warning --border --input --ring --radius. Use as hsl(var(--primary)) / hsl(var(--primary)/.12).
-Classes: layout .container .stack .row .between .center .grid-2/3/4 .auto-grid(style="--min:240px") · type .eyebrow .display .h2 .h3 .lead .muted .small · .btn(.btn-secondary .btn-outline .btn-ghost .btn-destructive · .btn-sm .btn-lg .btn-icon .btn-block) · .card(.card-header .card-body .card-title .card-desc .card-footer) · .badge(.badge-success .badge-warning .badge-danger) · .live-dot · .avatar · .separator · forms .field > .label + .input/.select/.textarea + .hint/.field-error, .checkbox .radio .switch · tabs [data-tabs] .tabs-list .tab[data-tab] .tab-panel[data-panel] · .accordion>details · dialog.dialog + [data-dialog-open]/[data-dialog-close] · .dropdown · .table-wrap>table.table · .skeleton .empty .alert(.alert-error .alert-success) .spinner · navbar header.navbar>.container.navbar-inner + .nav-links + [data-nav-toggle] · [data-theme-toggle].
-JS: ui.toast(msg,{type:'success'|'error'}) · ui.loading(btn,true|false) · ui.timeAgo(ts) · ui.theme.toggle() · ui.validate(form).
-Build a DISTINCTIVE look on top of the kit (palette, fonts, spacing, details) — extend kit classes, don't restyle them from scratch.`;
+const ICON_HINT = "plus minus x check search menu settings sliders trash pencil copy share download upload save play pause stop rotate-ccw skip-forward timer clock alarm-clock hourglass calendar bell bell-off volume-2 volume-x sun moon user users heart star flame trophy target zap sparkles chart-line bar-chart pie-chart trending-up wallet rupee receipt shopping-cart tag home layout-dashboard list list-checks inbox mail phone map-pin message-circle send image camera file-text folder link lock eye info alert-triangle circle-check chevron-down chevron-right arrow-right external-link log-out moon globe book-open graduation-cap dumbbell coffee utensils music gamepad dice qr-code calculator palette wand";
+
+const UI_KIT_DOC = `STYLING = TAILWIND + STAK KIT (both hosted and compiled for you; never output stak-ui.*, stak-tw.css, or the Tailwind CDN).
+<head> order: Google Fonts preconnect + link → <link rel="stylesheet" href="stak-ui.css"> → <link rel="stylesheet" href="styles.css">. Scripts: <script src="stak-ui.js" defer></script> then app.js (defer).
+- Write the layout with Tailwind v3 utility classes (flex, grid, gap-*, px-*, rounded-2xl, text-sm, md:/lg: breakpoints, dark:, hover:, focus-visible:, active:, transition, animate-fade-in). Every class you use is compiled server-side — but ONLY Tailwind utilities, the kit classes below, or classes you define in styles.css exist. Never invent class names.
+- Theme tokens (shadcn names) are Tailwind colours: bg-background text-foreground bg-card text-card-foreground bg-muted text-muted-foreground bg-primary text-primary-foreground bg-secondary bg-accent text-destructive bg-success text-warning border-border ring-ring, with opacity e.g. bg-primary/10. rounded-lg = var(--radius). font-display / font-sans.
+- styles.css: ONLY theme tokens + the few custom visuals Tailwind can't do (e.g. a progress ring). :root{--primary:H S% L%;--primary-foreground:…;--background:…;--foreground:…;--card:…;--muted:…;--muted-foreground:…;--accent:…;--border:…;--ring:…;--radius:.875rem;--font-sans:"Inter",system-ui,sans-serif;--font-display:"…"} and .dark{…same tokens…}. Values are space-separated HSL WITHOUT hsl(). Neutral near-white/near-black backgrounds; colour lives in --primary.
+- Kit components (polished, accessible, dark-mode ready — prefer them over hand-rolled ones): .btn (primary by default) + .btn-secondary .btn-outline .btn-ghost .btn-destructive, sizes .btn-sm .btn-lg .btn-icon .btn-block · .input .select .textarea inside .field > .label (+ .hint/.field-error) · .switch .checkbox .radio · .badge(.badge-success/-warning/-danger) · tabs: [data-tabs] > .tabs-list > button.tab[data-tab=x] + .tab-panel[data-panel=x] · dialog.dialog + [data-dialog-open=id]/[data-dialog-close] · .accordion>details · .table-wrap>table.table · .skeleton .empty .alert(.alert-error/.alert-success) .spinner · [data-theme-toggle] button.
+- ICONS: <i data-icon="name" class="size-4"></i> (also works in HTML you render later from JS; or Icon("name") → SVG string). Any Lucide icon name (lucide.dev, 1,700+) works, e.g. ${ICON_HINT}. NEVER hand-draw SVG icons and never use emoji as icons.
+- JS helpers: ui.toast(msg,{type:'success'|'error'}) · ui.loading(btn,true|false) · ui.timeAgo(ts) · ui.theme.toggle() · ui.validate(form).
+
+DESIGN SYSTEM — make it look like Linear / Vercel / Raycast, not a tutorial:
+- App shell: <body class="min-h-dvh bg-background text-foreground antialiased">; sticky header "sticky top-0 z-30 border-b bg-background/80 backdrop-blur" with inner "mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6" (logo tile + name left, actions + theme toggle right). Main "mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8". 3+ views → sidebar on lg and a fixed bottom tab bar on mobile ("fixed inset-x-0 bottom-0 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden") with main padded pb-24.
+- Use the space: on desktop put the main instrument and secondary panels side by side (lg:grid-cols-[minmax(0,1fr)_340px] or a 12-col grid); never one narrow column floating in empty space, never a giant title above the app.
+- Surfaces: cards "rounded-2xl border bg-card p-5 sm:p-6 shadow-sm"; group related controls; section titles text-sm font-medium text-muted-foreground. Spacing on a 4px rhythm (gap-2/3/4/6).
+- Type: one sans for UI (Inter, Geist-like: "Inter", "Plus Jakarta Sans", "Manrope", "DM Sans"); headings tracking-tight font-semibold; hero numbers (timers, totals, scores) font-display text-6xl–8xl font-semibold tabular-nums tracking-tight. Body text-[15px]/text-base, never below text-xs for labels.
+- Controls: segmented controls = "inline-flex rounded-xl bg-muted p-1" with active item "rounded-lg bg-background px-3 py-1.5 text-sm font-medium shadow-sm"; numeric steppers with − / + .btn-icon; sliders styled with accent-[hsl(var(--primary))]; every input labelled.
+- Feedback & motion: hover:bg-accent, active:scale-[.98], transition-colors duration-150, animate-fade-in on newly rendered items, progress bars/rings for anything time- or goal-based, ui.toast after actions, .empty states with an icon + one line + a primary action, skeletons while loading.
+- Structure is always visible: boards keep their columns, calendars their grid, dashboards their cards even with zero data — put the empty hint INSIDE that structure, never replace the whole app with one empty message. On first load the main screen must already be rendered (call your render/init at the end of app.js).
+- Polish details that separate pro apps: keyboard shortcuts with <kbd class="rounded border bg-muted px-1.5 font-mono text-[11px]">, live document.title updates for timers, prefers-reduced-motion respected, focus-visible rings, 44px tap targets on mobile, no layout shift when numbers change (tabular-nums, fixed widths).
+
+REFERENCE SNIPPET (style only — adapt the structure to the product, don't copy its content):
+<header class="sticky top-0 z-30 border-b bg-background/80 backdrop-blur"><div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6">
+ <span class="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground"><i data-icon="sparkles" class="size-4"></i></span>
+ <span class="font-semibold tracking-tight">Product</span>
+ <div class="ml-auto flex items-center gap-1"><button class="btn btn-ghost btn-icon" data-theme-toggle aria-label="Toggle theme"><i data-icon="moon"></i></button></div></div></header>
+<main class="mx-auto grid max-w-6xl gap-4 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+ <section class="rounded-2xl border bg-card p-5 shadow-sm sm:p-8">
+  <div class="inline-flex rounded-xl bg-muted p-1 text-sm" role="tablist"><button class="rounded-lg bg-background px-3 py-1.5 font-medium shadow-sm" aria-selected="true">Mode A</button><button class="rounded-lg px-3 py-1.5 text-muted-foreground hover:text-foreground">Mode B</button></div>
+  <p class="mt-8 text-center font-display text-7xl font-semibold tabular-nums tracking-tight">42</p>
+  <div class="mt-8 flex justify-center gap-2"><button class="btn btn-lg"><i data-icon="play"></i>Start</button><button class="btn btn-outline btn-lg btn-icon" aria-label="Reset"><i data-icon="rotate-ccw"></i></button></div>
+ </section>
+ <aside class="grid gap-4 content-start">
+  <div class="rounded-2xl border bg-card p-5"><p class="text-sm text-muted-foreground">Today</p><p class="mt-1 text-3xl font-semibold tabular-nums">4<span class="ml-1 text-base font-normal text-muted-foreground">done</span></p></div>
+ </aside></main>`;
 
 const SDK_DOC = `STAK CLOUD SDK (hosted backend, zero config). Add <script src="stak.js"></script> BEFORE app.js when the product needs accounts, saved/shared data, AI, uploads, web search or external APIs. Global \`stak\`:
-- await stak.ready; stak.auth.user → null | {id,name,email,role}; stak.auth.isAdmin → true for the project owner/admin
+- await stak.ready; stak.auth.user → null | {id,name,email,role}; stak.auth.uid → stable id of the current visitor (signed-in user id, or anonymous device id); stak.auth.isAdmin → true for the project owner/admin
 - stak.auth.signUp({name,email,password}) · signIn({email,password}) · signOut() · onChange(user => render())
 - const c = stak.db.collection('todos'); await c.add({...}) → {id,...,owner,created,updated}; c.list({where:{done:false}, sort:'-created', limit:50, mine:true, search:'x'}); c.get(id); c.update(id,{...}); c.remove(id)
   realtime: const stop = c.subscribe(items => render(items), {where, sort, limit}). Access is enforced on the SERVER by stak.rules.json (read/create/update/delete = public | auth | owner | admin). Defaults if you omit a collection: public read, anyone can create, only owner/admin can change. Personal data (orders, bookings, leads, messages, notes) MUST be read:"owner" or "admin".
@@ -92,7 +122,7 @@ const QUALITY_DOC = `QUALITY BAR (all must be true):
 - Mobile-first: perfect at 375px (no horizontal scroll, 16px+ body text, tap targets ≥ 44px), scales to 1440px.
 - States: loading (skeletons/spinner), empty (.empty + helpful action), error (.alert-error + Retry), success (ui.toast).
 - Accessibility: semantic landmarks, one h1, labelled inputs, aria-label on icon buttons, visible :focus-visible, keyboard operable, prefers-reduced-motion respected.
-- Design: 1 display + 1 text Google Font with preconnect; 4px spacing rhythm; consistent radius; subtle borders over heavy shadows; WCAG AA contrast; no purple-gradient/AI-template clichés.
+- Design: follows the DESIGN SYSTEM below; Google Fonts with preconnect; consistent radius; subtle borders over heavy shadows; WCAG AA contrast in light AND dark; no purple-gradient/AI-template clichés.
 - Code: no console errors, guard DOM lookups, escape user content (textContent or esc()), no eval, no inline secrets, no innerHTML with untrusted data.
 - <title>, meta description, viewport, lang attribute; logo.svg as favicon (<link rel="icon" href="logo.svg">).`;
 
@@ -170,7 +200,7 @@ If the user only asks a question (no change needed), output ONLY <stak-summary>y
 
 ${kind === "site" ? "" : `This is a ${NOUN[kind]}: never add marketing sections (hero, pricing, testimonials) unless the user explicitly asks.\n`}${PHOTO_DOC}
 ${SANDBOX_DOC}
-Reuse Stak UI kit classes and keep stak.js / stak.rules.json working; update stak.rules.json when you add a collection.
+Style with Tailwind utilities + Stak kit classes (compiled for you; never invent class names), icons via <i data-icon="name"></i>; keep stak.js / stak.rules.json working; update stak.rules.json when you add a collection.
 ${QUALITY_DOC}
 
 ${SDK_DOC}`;
@@ -193,7 +223,7 @@ Be strict: a check passes only if the code really does it (not just mentions it)
 function filesBlock(files, max = 120000) {
   let s = "", n = 0;
   for (const [p, c] of Object.entries(files)) {
-    if (p === "stak-ui.css" || p === "stak-ui.js") continue;
+    if (p === "stak-ui.css" || p === "stak-ui.js" || p === "stak-tw.css") continue;
     if (p.endsWith(".svg") && c.length > 3000) { s += `<current-file path="${p}">(svg, ${c.length} chars, unchanged)</current-file>\n`; continue; }
     const chunk = `<current-file path="${p}">\n${c}\n</current-file>\n`;
     if (n + chunk.length > max) { s += `<current-file path="${p}">(omitted: too large)</current-file>\n`; continue; }

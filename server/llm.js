@@ -35,7 +35,7 @@ const ENV_LIST = (k) => (process.env[k] ? process.env[k].split(",").map((s) => s
 const CHAINS = {
   // Groq first (LPU speed: a full 16k-token build in ~30-45s). Each Groq model has its own TPM bucket, so rotating
   // across the three keeps a free key productive; NVIDIA NIM is the deep fallback.
-  build: ENV_LIST("STAK_CHAIN_BUILD") || ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-20b", "nvidia:nvidia/nemotron-3-ultra-550b-a55b", "nvidia:google/gemma-4-31b-it", "nvidia:poolside/laguna-xs-2.1", "nvidia:mistralai/mistral-large-4-1t-a52b", "nvidia:minimaxai/minimax-m3.1-flash"],
+  build: ENV_LIST("STAK_CHAIN_BUILD") || ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "nvidia:mistralai/mistral-large-4-1t-a52b", "nvidia:google/gemma-4-31b-it", "groq:openai/gpt-oss-20b", "nvidia:minimaxai/minimax-m3.1-flash", "nvidia:poolside/laguna-xs-2.1", "nvidia:nvidia/nemotron-3-ultra-550b-a55b"],
   plan: ENV_LIST("STAK_CHAIN_PLAN") || ["groq:openai/gpt-oss-120b", "groq:openai/gpt-oss-20b", "groq:qwen/qwen3.8-27b", "nvidia:google/gemma-4-31b-it", "nvidia:nvidia/nemotron-3-ultra-550b-a55b", "nvidia:poolside/laguna-xs-2.1"],
   // runtime AI inside generated apps (chatbots etc): quality first, still sub-second on Groq
   appchat: ENV_LIST("STAK_CHAIN_APPCHAT") || ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-20b", "nvidia:google/gemma-4-31b-it", "nvidia:nvidia/nemotron-3-ultra-550b-a55b"],

@@ -12,10 +12,43 @@ const RUNTIME = {
 // The UI kit is copied INTO the project as real files (so preview, download and deploy all work
 // without frontend changes). It is always refreshed from the server copy and never sent to the model.
 const KIT = ["stak-ui.css", "stak-ui.js"];
+// Icons: a curated base set always ships; any other Lucide icon (1,700+) a project references is bundled on demand,
+// and unknown names in markup are snapped to the closest real icon so no app ever shows a blank/fallback glyph.
+const ICON_TPL = fs.readFileSync(path.join(__dirname, "runtime/stak-icons.tpl.js"), "utf8");
+const ICON_BASE = JSON.parse(fs.readFileSync(path.join(__dirname, "runtime/icons.json"), "utf8"));
+const ICON_ALL = JSON.parse(fs.readFileSync(path.join(__dirname, "runtime/icons-all.json"), "utf8"));
+const ICON_SYN = { swap: "arrow-left-right", exchange: "arrow-left-right", convert: "arrow-left-right", delete: "trash-2", remove: "trash-2", close: "x", add: "plus", gear: "settings", cog: "settings", config: "settings", preferences: "settings", stats: "chart-column", analytics: "chart-column", chart: "chart-line", graph: "chart-line", time: "clock", stopwatch: "timer", alarm: "alarm-clock", sound: "volume-2", audio: "volume-2", speaker: "volume-2", notification: "bell", alert: "triangle-alert", warning: "triangle-alert", success: "circle-check", error: "circle-x", fire: "flame", streak: "flame", money: "wallet", cash: "banknote", currency: "coins", weight: "weight", temperature: "thermometer", length: "ruler", distance: "ruler", profile: "user", account: "user", person: "user", people: "users", team: "users", email: "mail", location: "map-pin", place: "map-pin", photo: "image", picture: "image", gallery: "images", document: "file-text", note: "sticky-note", notes: "notebook-pen", task: "square-check", tasks: "list-checks", done: "check", complete: "circle-check", favorite: "heart", like: "heart", rating: "star", edit: "pencil", write: "pen-line", logout: "log-out", login: "log-in", theme: "moon", dark: "moon", light: "sun", info: "info", help: "circle-help", question: "circle-help", history: "history", recent: "history", reload: "refresh-cw", sync: "refresh-cw", undo: "undo-2", redo: "redo-2", restart: "rotate-ccw", reset: "rotate-ccw", next: "chevron-right", prev: "chevron-left", previous: "chevron-left", back: "arrow-left", forward: "arrow-right", expand: "maximize", fullscreen: "maximize", collapse: "minimize", brain: "brain", ai: "sparkles", magic: "wand-sparkles", bot: "bot", robot: "bot", game: "gamepad-2", trophy: "trophy", award: "award", level: "signal", food: "utensils", drink: "cup-soda", water: "droplet", health: "heart-pulse", fitness: "dumbbell", workout: "dumbbell", run: "footprints", walk: "footprints", sleep: "bed", study: "graduation-cap", learn: "book-open", book: "book", code: "code", terminal: "terminal", cart: "shopping-cart", shop: "store", store: "store", payment: "credit-card", card: "credit-card", receipt: "receipt", invoice: "receipt", qr: "qr-code", scan: "scan-line", link: "link", share: "share-2", copy: "copy", paste: "clipboard", download: "download", upload: "upload", save: "save", calendar: "calendar", date: "calendar", focus: "target", goal: "target", flag: "flag", play: "play", pause: "pause", stop: "square", skip: "skip-forward", music: "music", mic: "mic", camera: "camera", video: "video", phone: "phone", chat: "message-square", message: "message-circle", send: "send", search: "search", filter: "funnel", sort: "arrow-up-down", menu: "menu", more: "ellipsis", dots: "ellipsis", grid: "layout-grid", list: "list", dashboard: "layout-dashboard", home: "house" };
+const iconExists = (n) => !!(ICON_BASE[n] || ICON_ALL[n]);
+function nearestIcon(n) {
+  n = String(n || "").toLowerCase().trim().replace(/^(lucide-|icon-|fa-|bi-|mdi-)/, "").replace(/[_\s]+/g, "-");
+  if (iconExists(n)) return n;
+  if (ICON_SYN[n] && iconExists(ICON_SYN[n])) return ICON_SYN[n];
+  const parts = n.split("-").filter(Boolean);
+  for (const p of parts) if (ICON_SYN[p] && iconExists(ICON_SYN[p])) return ICON_SYN[p];
+  let best = null, score = 0;
+  for (const k of Object.keys(ICON_ALL)) {
+    const kp = k.split("-"); let sc = 0;
+    for (const p of parts) if (kp.includes(p)) sc += 2; else if (k.includes(p) && p.length > 3) sc += 1;
+    sc -= kp.length * 0.05;
+    if (sc > score) { score = sc; best = k; }
+  }
+  return score >= 1.5 ? best : "circle";
+}
+function snapIcons(html) {
+  return String(html).replace(/(data-icon\s*=\s*["'])([^"'${}<>]+)(["'])/g, (m, a, n, b) => a + nearestIcon(n) + b);
+}
+function uiJsFor(all) {
+  const used = {};
+  for (const m of all.matchAll(/["'`]([a-z][a-z0-9-]{0,40})["'`]/g)) { const n = m[1]; if (!ICON_BASE[n] && ICON_ALL[n]) used[n] = ICON_ALL[n]; }
+  const icons = Object.assign({}, ICON_BASE, used);
+  for (const [k, v] of Object.entries(ICON_SYN)) if (!icons[k] && icons[v]) icons[k] = v;
+  return RUNTIME["stak-ui.js"] + "\n" + ICON_TPL.replace("__ICONS__", JSON.stringify(icons));
+}
 function withKit(files) {
   const out = { ...files };
+  for (const k of Object.keys(out)) if (/\.html?$/.test(k) && /data-icon/.test(out[k])) out[k] = snapIcons(out[k]);
   const all = Object.entries(out).filter(([k]) => !KIT.includes(k)).map(([, v]) => v).join("\n");
-  for (const k of KIT) { if (all.includes(k)) out[k] = RUNTIME[k]; else delete out[k]; }
+  for (const k of KIT) { if (all.includes(k)) out[k] = k === "stak-ui.js" ? uiJsFor(all) : RUNTIME[k]; else delete out[k]; }
   return out;
 }
 
@@ -26,16 +59,26 @@ const cleanFile = (s) => {
 };
 const safePath = (p) => /^[\w\-./]+$/.test(p) && !p.includes("..") && !p.startsWith("/") && p.length < 80;
 
+// Tolerant: models (esp. fallbacks) often forget </stak-file>, use single quotes or add attributes. A file ends at its
+// closing tag OR at the next top-level Stak tag, so one missing close never swallows the remaining files.
+const OPEN_FILE = /<stak-file\s+path\s*=\s*["']([^"']+)["'][^>]*>\n?/g;
+const NEXT_TAG = /<\/stak-file>|<stak-(file|patch)\s+path\s*=|<stak-summary>/;
 function parseFiles(text) {
   const files = {};
-  const re = /<stak-file path="([^"]+)">\n?([\s\S]*?)<\/stak-file>/g;
+  const t = String(text || "");
   let m;
-  while ((m = re.exec(text))) if (safePath(m[1])) files[m[1]] = cleanFile(m[2]);
+  OPEN_FILE.lastIndex = 0;
+  while ((m = OPEN_FILE.exec(t))) {
+    const rest = t.slice(OPEN_FILE.lastIndex);
+    const end = rest.search(NEXT_TAG);
+    const body = end < 0 ? rest : rest.slice(0, end);
+    if (safePath(m[1]) && body.trim()) files[m[1]] = cleanFile(body);
+  }
   return files;
 }
 function parsePatches(text) {
   const out = [];
-  const re = /<stak-patch path="([^"]+)">\n?([\s\S]*?)<\/stak-patch>/g;
+  const re = /<stak-patch\s+path\s*=\s*["']([^"']+)["'][^>]*>\n?([\s\S]*?)(?:<\/stak-patch>|(?=<stak-(?:file|patch)\s+path\s*=|<stak-summary>)|$)/g;
   let m;
   while ((m = re.exec(text))) {
     const blocks = [];
@@ -85,6 +128,20 @@ function inlineScripts(html) {
   let m;
   while ((m = re.exec(html))) if (!/\bsrc=/.test(m[1]) && !/type=["'](module|application\/ld\+json|importmap|text\/template)/i.test(m[1]) && m[2].trim()) out.push(m[2]);
   return out;
+}
+// Deterministic repair for the most common model slip: an English apostrophe inside a '...' string (Couldn't, it's)
+function fixApostrophes(code) {
+  let c = code;
+  for (let k = 0; k < 25; k++) {
+    let line = 0;
+    try { new vm.Script(c, { filename: "f.js" }); return c; } catch (e) { const m = String(e.stack).match(/f\.js:(\d+)/); line = m ? +m[1] : 0; }
+    if (!line) return null;
+    const ls = c.split("\n"), L = ls[line - 1];
+    const nx = L.replace(/([A-Za-z])'(t|s|re|ll|ve|d|m)\b(?=[^']*'\s*[+,;)\]}:]|[^']*'\s*$)/, "$1\\'$2");
+    if (nx === L) return null;
+    ls[line - 1] = nx; c = ls.join("\n");
+  }
+  return null;
 }
 function syntaxError(code) {
   if (/^\s*(import|export)\s/m.test(code)) return null; // ES modules: skip
@@ -215,7 +272,8 @@ function verify(files, title) {
   // JS syntax
   for (const [p, c] of Object.entries(files)) {
     if (!p.endsWith(".js")) continue;
-    const err = syntaxError(c);
+    let err = syntaxError(c);
+    if (err) { const f2 = fixApostrophes(c); if (f2 && !syntaxError(f2)) { files[p] = f2; fixed++; err = null; } }
     if (err) remaining.push({ file: p, problem: `JavaScript syntax error: ${err}` });
   }
   for (const [p, c] of Object.entries(files)) {
@@ -268,6 +326,19 @@ function ensure(){if(box)return box;box=document.createElement('div');box.style.
 function over(e){if(!on)return;var t=e.target;if(!t||t===box)return;last=t;var r=t.getBoundingClientRect(),b=ensure();b.style.display='block';b.style.left=r.left+'px';b.style.top=r.top+'px';b.style.width=r.width+'px';b.style.height=r.height+'px'}
 function click(e){if(!on)return;e.preventDefault();e.stopPropagation();var t=last||e.target;var label=(t.getAttribute('aria-label')||t.textContent||t.tagName).trim().replace(/\\s+/g,' ').slice(0,60);post({__stak:'select',selector:sel(t),html:t.outerHTML.slice(0,2400),label:label||t.tagName.toLowerCase()});}
 document.addEventListener('mouseover',over,true);document.addEventListener('click',click,true);
+function vis(el){var r=el.getBoundingClientRect();if(r.width<2||r.height<2)return null;var cs=getComputedStyle(el);if(cs.visibility==='hidden'||cs.display==='none'||+cs.opacity===0)return null;return r}
+function boxed(el){var a=el.parentElement;while(a&&a!==document.body){var cs=getComputedStyle(a);if(cs.overflowX!=='visible'&&cs.overflowX!=='clip')return null;if(parseFloat(cs.borderLeftWidth)>0||(cs.backgroundColor&&cs.backgroundColor!=='rgba(0, 0, 0, 0)'&&cs.backgroundColor!=='transparent'))return a;a=a.parentElement}return null}
+function lbl(el){return((el.getAttribute('aria-label')||el.textContent||el.getAttribute('placeholder')||el.tagName).trim().replace(/\\s+/g,' ').slice(0,40))}
+function audit(){var out=[],els=[],seen={},W=window.innerWidth,mob=W<520;function add(el,kind,problem){var k=sel(el)+kind;if(seen[k]||out.length>=8)return;for(var i=0;i<els.length;i++)if(els[i].contains(el))return;seen[k]=1;els.push(el);out.push({kind:kind,selector:sel(el),label:lbl(el),problem:problem})}
+var all=[].slice.call(document.body.querySelectorAll('*')).slice(0,2500);
+if(document.documentElement.scrollWidth>W+2){all.forEach(function(el){var r=vis(el);if(r&&r.right>W+2&&getComputedStyle(el).position!=='fixed'&&!(el.closest&&el.closest('[class*=overflow-x],.table-wrap')))add(el,'overflow','sticks out past the right edge of the screen ('+Math.round(r.right-W)+'px) and causes sideways scrolling')})}
+all.forEach(function(el){var t=el.tagName;if(!/^(INPUT|SELECT|TEXTAREA|BUTTON|IMG|CANVAS|TABLE|PRE|svg|A|P|H1|H2|H3|SPAN|LABEL|DIV)$/.test(t))return;var r=vis(el);if(!r)return;var b=boxed(el);if(!b)return;var br=b.getBoundingClientRect();if(r.right>br.right+3||r.left<br.left-3)add(el,'overflow','is wider than its card/container '+sel(b).split(' > ').pop()+' and spills out of it ('+Math.round(Math.max(r.right-br.right,br.left-r.left))+'px)')});
+all.forEach(function(el){if(!el.firstChild||el.children.length>2)return;var tx=(el.textContent||'').trim();if(!tx)return;var cs=getComputedStyle(el);if(!vis(el))return;var hid=cs.overflow==='hidden'||cs.overflowX==='hidden',deco=parseFloat(cs.borderLeftWidth)>0||(cs.backgroundColor!=='rgba(0, 0, 0, 0)'&&cs.backgroundColor!=='transparent');if(cs.textOverflow!=='ellipsis'&&(hid||deco)&&el.scrollWidth>el.clientWidth+3)add(el,'clipped','text "'+lbl(el)+'" does not fit its box (container too narrow)')});
+[].slice.call(document.querySelectorAll('button,input[type=button],input[type=submit],select')).forEach(function(el){var r=vis(el);if(!r)return;var cs=getComputedStyle(el);if(cs.borderTopStyle==='outset'||cs.backgroundColor==='rgb(239, 239, 239)'||cs.backgroundColor==='rgb(240, 240, 240)')add(el,'unstyled','renders as a plain browser-default control (no styling)');if(mob&&el.tagName==='BUTTON'&&r.height<32&&r.width<120)add(el,'tap','is only '+Math.round(r.height)+'px tall: too small to tap on a phone (needs 40px+)')});
+var bf=getComputedStyle(document.body).fontFamily||'';if(/^"?Times/i.test(bf))add(document.body,'font','page text falls back to Times New Roman (font not loaded / not set)');
+return out}
+function runAudit(){var go=function(){try{post({__stak:'audit',width:window.innerWidth,issues:audit()})}catch(_){}};(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){setTimeout(go,1200)})}
+if(document.readyState==='complete')runAudit();else window.addEventListener('load',runAudit);
 window.addEventListener('message',function(e){var d=e.data||{};if(e.source!==P)return;if(d.__stak==='pick'){on=!!d.on;if(!on&&box)box.style.display='none';document.documentElement.style.cursor=on?'crosshair':''}});
 })();</script>`;
 function withPreviewAgent(html) { return /<head[^>]*>/i.test(html) ? html.replace(/<head([^>]*)>/i, (m) => `${m}\n${PREVIEW_AGENT}`) : PREVIEW_AGENT + html; }
@@ -348,10 +419,53 @@ function readRules(files) {
   } catch (e) { return { rules: null, issues: [{ file: "stak.rules.json", problem: `stak.rules.json is not valid JSON: ${e.message}` }] }; }
 }
 
+// "Never starts" check: the model writes renderX()/init() but nothing at the TOP LEVEL ever calls them → blank screen.
+function topLevelCode(c) {
+  let out = "", depth = 0, i = 0;
+  const n = c.length;
+  while (i < n) {
+    const ch = c[i], nx = c[i + 1];
+    if (ch === "/" && nx === "/") { while (i < n && c[i] !== "\n") i++; continue; }
+    if (ch === "/" && nx === "*") { i = c.indexOf("*/", i + 2); if (i < 0) break; i += 2; continue; }
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const q = ch, s0 = i; i++;
+      let tdepth = 0;
+      while (i < n) {
+        if (c[i] === "\\") { i += 2; continue; }
+        if (q === "`" && c[i] === "$" && c[i + 1] === "{") { tdepth++; i += 2; continue; }
+        if (q === "`" && tdepth && c[i] === "}") { tdepth--; i++; continue; }
+        if (c[i] === q && !tdepth) break;
+        i++;
+      }
+      i++; if (depth === 0) { const lit = c.slice(s0 + 1, i - 1); out += q + (lit.length < 30 && !/[\n{}]/.test(lit) ? lit : "") + q; } continue;
+    }
+    if (ch === "{") { depth++; if (depth === 1) out += "{"; i++; continue; }
+    if (ch === "}") { depth = Math.max(0, depth - 1); if (depth === 0) out += "}"; i++; continue; }
+    if (depth === 0) out += ch;
+    i++;
+  }
+  return out;
+}
+function startupIssues(files) {
+  const out = [];
+  for (const [p, c] of Object.entries(files)) {
+    if (!p.endsWith(".js") || p.startsWith("stak") || p === "sw.js" || /^\s*(import|export)\s/m.test(c)) continue;
+    const names = [...new Set([...c.matchAll(/^(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)\s*\(/gm), ...c.matchAll(/^(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/gm)].map((m) => m[1]))];
+    if (names.length < 3) continue;
+    const top = topLevelCode(c).replace(/^(?:async\s+)?function\s*\*?\s*[A-Za-z_$][\w$]*\s*\([^)]*\)\s*\{\}/gm, "");
+    if (/DOMContentLoaded|addEventListener\(\s*["'`](?:load|pageshow)["'`]|onload\s*=|\bnew\s+[A-Z]\w*\s*\(|^\s*[;!]?\(\s*(?:async\s*)?(?:function|\()|\)\s*\(\s*\)\s*;?\s*$/m.test(top)) continue;
+    if (names.some((nm) => new RegExp(`(^|[^\\w$.])${nm.replace(/\$/g, "\\$")}\\s*\\(`).test(top.replace(new RegExp(`function\\s*\\*?\\s*${nm.replace(/\$/g, "\\$")}\\s*\\(`, "g"), "")))) continue;
+    if (/\b(?:Stak|stak)\.\w+\s*\(/.test(top) && /\b(?:on|subscribe|watch)\w*\s*\(/.test(top)) continue;
+    out.push({ file: p, kind: "code", problem: `${p} defines ${names.length} functions (${names.slice(0, 6).join(", ")}…) but nothing calls them when the page loads, so the app shows an empty screen`, fix: "at the end of the file, load saved state and call the initial render/init functions (e.g. loadState(); render();) — make sure the first screen is fully populated on load" });
+  }
+  return out;
+}
+
 async function verifyFull(files, title, { kind, prompt } = {}) {
   const v = verify(files, title);
   try { v.remaining.push(...await runtimeErrors(v.files)); } catch (e) { console.warn("[runtime-check]", e.message); }
   try { v.remaining.push(...domRefIssues(v.files)); } catch (e) { console.warn("[dom-check]", e.message); }
+  try { v.remaining.push(...startupIssues(v.files)); } catch (e) { console.warn("[startup-check]", e.message); }
   if (kind) v.remaining.push(...intentIssues(v.files, kind, prompt));
   const r = readRules(v.files);
   v.remaining.push(...r.issues);
@@ -359,4 +473,4 @@ async function verifyFull(files, title, { kind, prompt } = {}) {
   return v;
 }
 
-module.exports = { domRefIssues, withPreviewAgent, intentIssues, readRules, readSeed, verifyFull, runtimeErrors, RUNTIME, KIT, withKit, parseFiles, parsePatches, summaryOf, applyBlock, verify, mimeOf, withConfig, withShim, cleanFile, safePath };
+module.exports = { fixApostrophes, startupIssues, topLevelCode, nearestIcon, snapIcons, domRefIssues, withPreviewAgent, intentIssues, readRules, readSeed, verifyFull, runtimeErrors, RUNTIME, KIT, withKit, parseFiles, parsePatches, summaryOf, applyBlock, verify, mimeOf, withConfig, withShim, cleanFile, safePath };

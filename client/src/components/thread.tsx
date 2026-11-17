@@ -247,6 +247,7 @@ export function QuestionStepper({ questions, intro, onSubmit, busy, onUpload }: 
 export function MessageView({ m, onRetry, retrying }: { m: Message; onRetry: () => void; retrying: boolean }) {
   if (m.role === "user") {
     const isAnswers = m.kind === "answers";
+    if (m.meta?.via === "audit") return <div className="flex justify-end"><span className="inline-flex items-center gap-1.5 rounded-2xl bg-muted px-3 py-2 text-sm text-muted-foreground" data-testid="text-auto-polish"><Sparkles className="h-3.5 w-3.5" />Visual check found layout issues — polishing automatically</span></div>;
     if (isAnswers && m.content === "__skip__") return <div className="flex justify-end"><span className="rounded-2xl bg-muted px-3 py-2 text-sm text-muted-foreground">Skipped questions — build with smart defaults</span></div>;
     return (
       <div className="flex flex-col items-end gap-1">
