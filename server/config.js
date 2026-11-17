@@ -26,6 +26,8 @@ function provider(name, { keyVar, baseVar, defBase, host, label }) {
 
 const providers = {};
 const groq = provider("groq", { keyVar: "GROQ_API_KEY", baseVar: "GROQ_BASE_URL", defBase: "https://api.groq.com/openai/v1", host: "api.groq.com", label: "Groq" });
+// Tokens-per-minute budget per Groq model (prompt tokens must fit; output is charged after). Free keys: 8000. Dev tier: set 250000.
+if (groq) groq.tpm = Number(env("GROQ_TPM")) || 8000;
 // Note: Groq free keys have ~8k TPM per model, but a single request may still produce up to 16k output
 // tokens (TPM is enforced on the *next* request). llm.js waits on 429 and rotates models instead of excluding Groq.
 if (groq) providers.groq = groq;

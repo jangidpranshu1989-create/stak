@@ -66,7 +66,14 @@ async function findPhoto(query, { landscape = true } = {}) {
     let list = [];
     try { list = await commonsSearch(q, 1400); } catch { list = []; }
     if (!list.length) continue;
-    const ok = list.filter((x) => !/(logo|map|diagram|chart|flag|coat of arms|icon|svg|screenshot|poster)/i.test(x.title));
+    // relevance: Commons full-text search often matches description text only (e.g. "cafe interior" -> a metro coach),
+    // so keep files whose title shares the most query words, and drop zero-overlap hits
+    const stem = (t) => t.toLowerCase().replace(/(ing|es|s)$/, "");
+    const qs = w.filter((x) => x.length > 2).map(stem);
+    const score = (x) => { const tw = String(x.title).toLowerCase().replace(/^file:/, "").split(/[^a-z0-9]+/).filter(Boolean).map(stem); return qs.filter((q) => tw.some((t) => t === q || (q.length > 3 && (t.startsWith(q) || q.startsWith(t) && t.length > 3)))).length; };
+    const ok = list.filter((x) => !/(logo|map|diagram|chart|flag|coat of arms|icon|svg|screenshot|poster)/i.test(x.title))
+      .map((x) => ({ x, s: score(x) })).filter((o) => o.s > 0).sort((a, b) => b.s - a.s).map((o) => o.x);
+    if (!ok.length) continue;
     const pick = (landscape ? ok.find((x) => x.w >= x.h * 1.15) : null) || ok[0];
     if (pick) return pick;
   }

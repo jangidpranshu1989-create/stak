@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="{{LANG}}" data-theme="{{MODE}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESC}}">
+<meta name="theme-color" content="#fafaf9">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script src="icons.js"></script>
+<script src="kit.js"></script>
+</head>
+<body>
+<div class="shell">
+  <aside class="nav" aria-label="Main">
+    <div class="brand"><span class="brand-mark" id="brandMark"></span><span class="brand-name" id="brandName"></span></div>
+    <button class="btn btn-primary nav-add" id="navAdd" type="button"></button>
+    <nav class="nav-links" id="navLinks"></nav>
+    <div class="nav-foot" id="navFoot"></div>
+  </aside>
+
+  <main class="main" id="main">
+    <header class="top">
+      <div class="top-l"><span class="brand-mark sm" id="brandMarkM"></span><h1 id="viewTitle"></h1></div>
+      <div class="month" id="month">
+        <button class="icon-btn sm" id="mPrev" aria-label="Previous month"></button>
+        <span id="mLabel" class="num"></span>
+        <button class="icon-btn sm" id="mNext" aria-label="Next month"></button>
+      </div>
+      <button class="btn btn-primary top-add" id="topAdd" type="button"></button>
+    </header>
+
+    <div class="sample-bar hidden" id="sampleBar"><span id="sampleText"></span><button class="btn btn-secondary btn-sm" id="sampleClear" type="button"></button></div>
+
+    <section class="view" id="view-dashboard"></section>
+    <section class="view hidden" id="view-records"></section>
+    <section class="view hidden" id="view-settings"></section>
+  </main>
+
+  <nav class="tabbar" id="tabbar" aria-label="Main"></nav>
+  <button class="fab" id="fab" type="button"></button>
+</div>
+
+<div class="overlay" id="sheetOv"></div>
+<form class="sheet" id="sheet" novalidate aria-modal="true" role="dialog" aria-labelledby="sheetTitle">
+  <div class="sheet-head"><h2 class="sheet-title" id="sheetTitle"></h2><button class="icon-btn" type="button" id="sheetClose" aria-label="Close"></button></div>
+  <div class="sheet-body" id="sheetBody"></div>
+  <div class="sheet-foot"><button class="btn btn-secondary" type="button" id="sheetDel"></button><button class="btn btn-primary" type="submit" id="sheetSave"></button></div>
+</form>
+<input type="file" id="importFile" accept=".csv,.json,text/csv,application/json" class="hidden">
+<script src="app.js" defer></script>
+</body>
+</html>

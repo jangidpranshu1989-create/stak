@@ -35,8 +35,10 @@ const ENV_LIST = (k) => (process.env[k] ? process.env[k].split(",").map((s) => s
 const CHAINS = {
   // Groq first (LPU speed: a full 16k-token build in ~30-45s). Each Groq model has its own TPM bucket, so rotating
   // across the three keeps a free key productive; NVIDIA NIM is the deep fallback.
-  build: ENV_LIST("STAK_CHAIN_BUILD") || ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-20b", "nvidia:nvidia/nemotron-3-ultra-550b-a55b", "nvidia:poolside/laguna-xs-2.1", "nvidia:mistralai/mistral-large-4-1t-a52b", "nvidia:minimaxai/minimax-m3.1-flash", "nvidia:stepfun-ai/step-5-preview"],
-  plan: ENV_LIST("STAK_CHAIN_PLAN") || ["groq:openai/gpt-oss-120b", "groq:openai/gpt-oss-20b", "groq:qwen/qwen3.8-27b", "nvidia:nvidia/nemotron-3-ultra-550b-a55b", "nvidia:poolside/laguna-xs-2.1"],
+  build: ENV_LIST("STAK_CHAIN_BUILD") || ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-20b", "nvidia:nvidia/nemotron-3-ultra-550b-a55b", "nvidia:google/gemma-4-31b-it", "nvidia:poolside/laguna-xs-2.1", "nvidia:mistralai/mistral-large-4-1t-a52b", "nvidia:minimaxai/minimax-m3.1-flash"],
+  plan: ENV_LIST("STAK_CHAIN_PLAN") || ["groq:openai/gpt-oss-120b", "groq:openai/gpt-oss-20b", "groq:qwen/qwen3.8-27b", "nvidia:google/gemma-4-31b-it", "nvidia:nvidia/nemotron-3-ultra-550b-a55b", "nvidia:poolside/laguna-xs-2.1"],
+  // runtime AI inside generated apps (chatbots etc): quality first, still sub-second on Groq
+  appchat: ENV_LIST("STAK_CHAIN_APPCHAT") || ["groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-20b", "nvidia:google/gemma-4-31b-it", "nvidia:nvidia/nemotron-3-ultra-550b-a55b"],
   fast: ENV_LIST("STAK_CHAIN_FAST") || ["groq:openai/gpt-oss-20b", "groq:openai/gpt-oss-120b", "groq:qwen/qwen3.8-27b", "nvidia:poolside/laguna-xs-2.1", "nvidia:nvidia/nemotron-3-ultra-550b-a55b"],
   quick: ENV_LIST("STAK_CHAIN_QUICK") || ["groq:openai/gpt-oss-20b", "groq:qwen/qwen3.8-27b", "groq:openai/gpt-oss-120b", "nvidia:poolside/laguna-xs-2.1", "nvidia:nvidia/nemotron-3-ultra-550b-a55b"],
 };
@@ -45,7 +47,7 @@ if (CFG.providers.custom) for (const k of Object.keys(CHAINS)) CHAINS[k].push(..
 const PRESETS = [
   { id: "stak:pro", name: "Stak Pro", categories: ["deep"], desc: "Deep, production-grade full-stack builds — the best default", sub: "GPT-OSS 120B · Qwen 3.8 · Nemotron 3 Ultra — auto-fallback", chains: { build: "build", fast: "fast", plan: "plan" }, effort: { build: "medium", fast: "low", plan: "high" } },
   { id: "stak:think", name: "Stak Think", categories: ["thinking"], desc: "Researches + plans the whole app first, then builds it", sub: "High reasoning plan → full build · best for complex apps", chains: { build: "build", fast: "fast", plan: "plan" }, effort: { build: "high", fast: "low", plan: "high" }, plan: true },
-  { id: "stak:fast", name: "Stak Fast", categories: ["fast"], desc: "Quick drafts and small edits in seconds", sub: "GPT-OSS 20B · Qwen 3.8 · Laguna XS — quick drafts", chains: { build: "quick", fast: "fast", plan: "quick" }, effort: { build: "low", fast: "low", plan: "low" } },
+  { id: "stak:fast", name: "Stak Fast", categories: ["fast"], desc: "Quick drafts and small edits in seconds", sub: "GPT-OSS 20B · Qwen 3.8 · Laguna XS — quick drafts", chains: { build: "quick", fast: "fast", plan: "quick", appchat: "appchat" }, effort: { build: "low", fast: "low", plan: "low", appchat: "low" } },
 ];
 
 // ----------------------------------------------------------------- health (circuit breaker)
@@ -199,11 +201,21 @@ function builtin(id) {
   return null;
 }
 
+// ---- tokens-per-minute budget (Groq free keys: ~8k tokens/min per model; a prompt larger than that is rejected with 413)
+const ledger = new Map(); // id -> [{t, n}]
+const estTokens = (msgs, system) => Math.ceil(((system || "").length + (msgs || []).reduce((n, m) => n + String(typeof m.content === "string" ? m.content : JSON.stringify(m.content || "")).length, 0)) / 3.6);
+function tpmOf(c) { return CFG.providers[c.provider]?.tpm || 0; }
+function usedLastMinute(id) { const now = Date.now(); const a = (ledger.get(id) || []).filter((x) => now - x.t < 60e3); ledger.set(id, a); return a.reduce((n, x) => n + x.n, 0); }
+function spend(id, n) { const a = ledger.get(id) || []; a.push({ t: Date.now(), n }); ledger.set(id, a); }
+// "fits" | "wait" (fits after the window drains) | "never" (request bigger than the bucket)
+function budget(c, need) { const tpm = tpmOf(c); if (!tpm) return "fits"; if (need > tpm) return "never"; return usedLastMinute(c.id) + need <= tpm ? "fits" : "wait"; }
+
 // candidate list for a builtin selection + role
 function candidates(sel, role) {
   const r = role === "plan" ? "plan" : role === "fast" ? "fast" : "build";
   let ids;
-  if (sel.single) ids = [sel.single.id, ...CHAINS[r === "fast" ? "fast" : "build"]];
+  if (role === "appchat") ids = CHAINS.appchat;
+  else if (sel.single) ids = [sel.single.id, ...CHAINS[r === "fast" ? "fast" : "build"]];
   else ids = CHAINS[sel.chains[r]] || CHAINS.build;
   const seen = new Set();
   const list = ids.map(byId).filter((m) => m && configured(m) && !seen.has(m.id) && seen.add(m.id));
@@ -211,7 +223,7 @@ function candidates(sel, role) {
   return warm.length ? [...warm, ...list.filter((m) => cooled(m.id))] : list; // if everything is cooled, still try in order
 }
 
-const retryable = (e) => !e.status || e.status === 408 || e.status === 409 || e.status === 429 || e.status >= 500 || e.status === 404 || e.status === 410 || e.status === 400 || /timed out|stopped responding|reach model|prematurely|terminated|socket/i.test(e.message);
+const retryable = (e) => !e.status || e.status === 408 || e.status === 413 || e.status === 409 || e.status === 429 || e.status >= 500 || e.status === 404 || e.status === 410 || e.status === 400 || /timed out|stopped responding|reach model|prematurely|terminated|socket/i.test(e.message);
 
 // One model, with automatic CONTINUATION: if the stream is cut (proxy/socket limits, idle timeouts) or hits max_tokens
 // after producing real output, ask the same model to continue exactly where it stopped and stitch the text together.
@@ -266,21 +278,32 @@ async function stream(m, opts) {
   let lastErr = null, streamed = false, waited = 0;
   const maxAttempts = Math.min(list.length + 1, opts.maxAttempts || 5);
   const queue = list.slice();
+  const promptTok = estTokens(opts.messages, opts.system);
+  // order by budget: models whose TPM bucket can take this request now go first; too-big requests skip that model entirely
+  // TPM-limited providers (Groq free = 8k/min): a request whose PROMPT exceeds the bucket gets a 413, so route it elsewhere.
+  // (Measured: Groq does not charge max_tokens up-front — a tiny prompt with max_tokens 20000 succeeds on an 8k key.)
+  const mtFor = (c) => Math.min(opts.maxTokens || 16000, c.out || 16000);
+  const plan = queue.map((c) => ({ c, st: budget(c, promptTok + 600) }));
+  const fitsAny = plan.some((p) => p.st !== "never");
+  queue.length = 0;
+  for (const st of ["fits", "wait"]) for (const p of plan) if (p.st === st) queue.push(p.c);
+  if (!fitsAny || !queue.length) queue.push(...plan.map((p) => p.c)); // nothing fits: try anyway in order (the provider decides)
   for (let i = 0; i < maxAttempts && queue.length; i++) {
     const c = queue.shift();
     if (streamed && opts.onRestart) { try { opts.onRestart(c); } catch {} }
     streamed = false;
-    const effort = c.reasoning ? (opts.reasoning || sel.effort?.[role] || (role === "fast" ? "low" : "medium")) : null;
+    const effort = c.reasoning ? (opts.reasoning || sel.effort?.[role] || (role === "fast" || role === "appchat" ? "low" : "medium")) : null;
     const t0 = Date.now();
     try {
       const r = await streamWithContinuation(c, opts, {
         streamed: () => { streamed = true; },
-        call: { provider: c.provider, model: c.model, reasoning: effort, maxTokens: Math.min(opts.maxTokens || 16000, c.out || 16000) },
+        call: { provider: c.provider, model: c.model, reasoning: effort, maxTokens: mtFor(c) },
       });
       if (!r.text.trim() && !opts.allowEmpty) throw Object.assign(new Error("Empty response"), { status: 502 });
       const why = opts.validate ? opts.validate(r.text, r) : null; // output-shape check: unusable output falls through to the next model
       if (why) throw Object.assign(new Error(why), { status: 502, invalid: true, head: r.text.slice(0, 240) });
       markOk(c.id, Date.now() - t0);
+      if (tpmOf(c)) spend(c.id, (r.usage?.prompt || promptTok) + (r.usage?.completion || 0));
       r.modelId = c.id; r.modelName = `${c.name} · ${c.by}`;
       if (i > 0 && opts.onFallback) opts.onFallback(c, lastErr);
       return r;
@@ -297,7 +320,9 @@ async function stream(m, opts) {
         if (opts.signal?.aborted) throw Object.assign(new Error("Stopped"), { aborted: true });
         queue.unshift(c); continue;
       }
-      if (!e.invalid) markFail(c.id, e);
+      if (e.status === 413) spend(c.id, tpmOf(c) || 0); // request too large for this bucket right now — skip, don't blame the model
+      else if (!e.invalid) markFail(c.id, e);
+      if (e.status === 429 && tpmOf(c)) spend(c.id, tpmOf(c));
     }
   }
   throw lastErr || new Error("All models failed");
@@ -341,4 +366,4 @@ function status() {
 }
 
 const BUILTIN = PRESETS; // back-compat export
-module.exports = { BUILTIN, PRESETS, CATALOG, CHAINS, builtin, builtinList, stream, complete, chat, streamOpenAI, parseJSON, refreshHealth, status, health, configured, byId };
+module.exports = { budget, estTokens, BUILTIN, PRESETS, CATALOG, CHAINS, builtin, builtinList, stream, complete, chat, streamOpenAI, parseJSON, refreshHealth, status, health, configured, byId };

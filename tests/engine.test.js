@@ -78,3 +78,23 @@ test("normalizeQuestions keeps valid questions and drops junk", () => {
   assert.ok(Array.isArray(q) && q.length >= 1);
   assert.ok(q.every((x) => x.question || x.q || x.text));
 });
+
+const TPL = require("../server/templates");
+
+test("templates: pick routes chat/tracker/site prompts and leaves others to free generation", () => {
+  assert.equal(TPL.pick("ek AI chatbot bana jo sawalon ke jawab de", "app"), "chat");
+  assert.equal(TPL.pick("expense tracker bana with categories and chart", "app"), "tracker");
+  assert.equal(TPL.pick("website for my cafe", "site"), "site");
+  assert.equal(TPL.pick("snake game", "game"), null);
+});
+
+test("templates: render produces a complete, safe app from junk config", () => {
+  for (const arch of ["chat", "tracker", "site"]) {
+    const { cfg, files } = TPL.render(arch, { name: "<b>X</b>", accent: "javascript:alert(1)", sections: "nope", fields: 5 }, { lang: "en" });
+    assert.ok(cfg && typeof cfg === "object", arch);
+    assert.match(files["index.html"], /<!doctype html>/i, arch);
+    assert.match(files["config.js"], /window\.APP\s*=/, arch);
+    assert.ok(!/javascript:alert/.test(files["config.js"] + files["index.html"]), arch);
+    for (const f of ["styles.css", "icons.js", "kit.js", "app.js"]) assert.ok(files[f] && files[f].length > 200, arch + " " + f);
+  }
+});

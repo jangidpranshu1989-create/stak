@@ -13,6 +13,7 @@ const IMG = require("./images");
 const WEB = require("./search");
 const INTENT = require("./intent");
 const CFG = require("./config");
+const TPL = require("./templates");
 
 const jobs = new Map(); // id -> live job
 let running = 0;
@@ -429,6 +430,39 @@ function reportOf(job, final, extra = {}) {
 }
 
 // ============ BUILD ============
+// ============ TEMPLATE-FIRST BUILD ============
+// Curated, hand-built app (chat / tracker / site) + a small model-written JSON config. Returns null to fall back.
+async function templateBuild(job, project, { arch, brief, lang, model, web }) {
+  step(job, "blueprint", `Designing your ${TPL.LABEL[arch]}`);
+  const today = new Date().toISOString().slice(0, 10);
+  const system = TPL.PROMPTS[arch](P.langName(lang), today);
+  let cfg = null;
+  try {
+    const r = await call(job, model.kind === "user" ? model : model, {
+      role: "plan", system, maxTokens: arch === "site" ? 5000 : 3800, temperature: 0.6, maxAttempts: 4, continuable: false, reasoning: "low",
+      messages: [{ role: "user", content: `${brief}${web || ""}\n\nHARD FACTS - copy exactly, never replace with other cities/names/numbers: the user said: "${String(project.prompt).slice(0, 600)}". Web research above is ONLY for ideas and wording - it may describe a different business with the same name. Never copy addresses, landmarks, pincodes or phone numbers from it; if the user gave no address, write a simple one in THEIR city (e.g. "Near City Mall, <their city>").\n\nWrite the JSON config now.` }], onText: null,
+      validate: (t) => { const j = llm.parseJSON(t); return j && typeof j === "object" && (j.name || j.fields || j.hero) ? null : "Config was not valid JSON"; },
+    });
+    cfg = llm.parseJSON(r.text);
+    if (r.modelName) job.model = r.modelName;
+  } catch (e) {
+    if (e.aborted) throw e;
+    console.warn("[template]", arch, e.message);
+    if (model.kind === "user") { try { return await templateBuild(job, project, { arch, brief, lang, model: PRO, web }); } catch (e2) { if (e2.aborted) throw e2; } }
+    step(job, "blueprint", null, "skip", "falling back to a custom build");
+    return null;
+  }
+  const out = TPL.render(arch, cfg, { title: project.title, prompt: project.prompt, lang });
+  if (!out) return null;
+  const c = out.cfg;
+  job.blueprint = { name: c.name, oneLiner: c.tagline || c.description || "", features: [], acceptance: [], template: arch };
+  step(job, "blueprint", null, "done", arch === "tracker" ? `${c.fields.length} fields · ${c.seed.length} sample entries` : arch === "chat" ? `${c.suggestions.length} starter prompts` : `${(c.sections || []).length} sections`);
+  step(job, "build", "Assembling the app");
+  for (const p of Object.keys(out.files)) job.doneFiles.push(p);
+  step(job, "build", null, "done", `${Object.keys(out.files).length} files · production template`);
+  return { files: out.files, summary: TPL.SUMMARY[arch](c) };
+}
+
 function startBuild({ project, userId, lang, wanted, msgId, brief, label = "Build" }) {
   const model = resolveModel(userId, wanted);
   const job = newJob("build", project.id, userId, model.name);
@@ -439,9 +473,16 @@ function startBuild({ project, userId, lang, wanted, msgId, brief, label = "Buil
   schedule(job, async () => {
     let used = model;
     try {
+      const arch = TPL.pick(project.prompt, job.kind);
+      let res = null, blueprint = null;
+      if (arch) {
+        const web = job.webCtx = await webContext(job, brief, Array.isArray(qmeta.research) ? qmeta.research : []);
+        res = await templateBuild(job, project, { arch, brief, lang, model, web });
+        if (res) { job.template = arch; if (job.model) used = { ...model, name: job.model }; }
+      }
+      if (!res) {
       // 1) blueprint
       step(job, "blueprint", "Designing the blueprint");
-      let blueprint = null;
       try {
         const r = await call(job, model, {
           role: "plan", system: P.BLUEPRINT_SYSTEM(lang, job.kind), maxTokens: 2600, temperature: 0.4, maxAttempts: 3, continuable: false,
@@ -457,12 +498,12 @@ function startBuild({ project, userId, lang, wanted, msgId, brief, label = "Buil
       } else step(job, "blueprint", null, "skip", "building from the brief");
 
       // 2) research
-      const web = await webContext(job, brief, Array.isArray(qmeta.research) ? qmeta.research : []);
+      const web = job.webCtx ?? await webContext(job, brief, Array.isArray(qmeta.research) ? qmeta.research : []);
 
       // 3) build
       step(job, "build", "Writing the code");
       const userMsg = brief + web + P.blueprintBlock(blueprint) + `\n${P.BUILD_LINE(job.kind, lang)}`;
-      const res = await withFallback(job, model, async (m) => {
+      res = await withFallback(job, model, async (m) => {
         let startLen = job.text.length, last = 0;
         const r = await call(job, m, {
           role: "build", system: P.BUILD_SYSTEM(lang, job.kind), maxTokens: 16000, temperature: 0.55,
@@ -480,6 +521,7 @@ function startBuild({ project, userId, lang, wanted, msgId, brief, label = "Buil
         return { files, summary: S.summaryOf(out) };
       });
       step(job, "build", null, "done", `${Object.keys(res.files).length} files`);
+      }
       if (stopped(job)) throw STOP();
 
       // 4) photos
@@ -545,7 +587,12 @@ function startEdit({ project, userId, lang, wanted, msgId, text, selection, hist
       step(job, "context", "Reading your project");
       const before = await inspect(files, project.title, { kind: job.kind, prompt: project.prompt });
       const baseline = new Set(before.issues.map(issueKey));
-      let req = `PROJECT TYPE: ${P.NOUN[job.kind]}\nCURRENT PROJECT FILES:\n${P.filesBlock(files)}`;
+      // template projects: the shared libraries are read-only context; most changes are config edits
+      const isTpl = !!(files["kit.js"] && files["icons.js"] && files["config.js"]);
+      const ctxFiles = isTpl ? Object.fromEntries(Object.entries(files).filter(([p]) => !["kit.js", "icons.js"].includes(p))) : files;
+      let req = `PROJECT TYPE: ${P.NOUN[job.kind]}\n`;
+      if (isTpl) req += `This project uses the Stak Pro template. kit.js (window.Kit: store.get/set, toast, confirm, theme, money, date, esc, uid, download, copy) and icons.js (window.Icon(name,size) → Lucide SVG string; names: ${TPL.ICONS.join(", ")}) are shared read-only libraries — never rewrite them. Prefer editing config.js (window.APP: names, colours, fields, categories, persona, suggestions, copy) for content changes; patch app.js/styles.css only for new behaviour or layout. Keep the existing design tokens (--accent, --surface, --border, --r…) and classes.\n`;
+      req += `CURRENT PROJECT FILES:\n${P.filesBlock(ctxFiles)}`;
       if (history) req += `\nRECENT CONVERSATION:\n${history}\n`;
       if (selection?.selector) req += `\nTHE USER SELECTED THIS ELEMENT in the preview (CSS path: ${selection.selector}${selection.label ? `, text: "${selection.label}"` : ""}):\n${String(selection.html || "").slice(0, 2400)}\nChange ONLY this element (and the CSS/JS it strictly needs) unless the request clearly says otherwise.\n`;
       step(job, "context", null, "done");

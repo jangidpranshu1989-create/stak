@@ -8,6 +8,7 @@ Describe what you want in English or Hinglish. Stak works out **what kind of thi
 
 | | What Stak does |
 |---|---|
+| **Production templates** | AI chatbots, trackers/dashboards (expenses, habits, inventory, leads…) and business websites start from hand-built, fully working templates (`server/templates/`). The model writes only a small JSON config — names, colours, fields, categories, copy, sample data — so you get a SaaS-grade UI in 3–8 s instead of a one-shot page with broken parts. Anything else still uses free generation. |
 | **Intent engine** | Rule-based classifier (`server/intent.js`) plus kind-specific build profiles. The checks in `site.js#intentIssues` reject a landing page when you asked for an app, and also catch a chatbot that never calls the AI, a tool with no input handlers, or a sign-in wall you didn't ask for. |
 | **Speed** | Groq models first (typical build is 20–30 s on GPT-OSS 120B), with automatic, health-checked fallback to NVIDIA NIM or any OpenAI-compatible endpoint. |
 | **Honest QA** | Every build gets: syntax and runtime checks, a DOM-reference check (ids the JS uses but the HTML lacks), a CDN-build fixer, an AI acceptance review against the blueprint's checks, a security scan (A–F), up to `STAK_REPAIR_ROUNDS` repairs, and a re-check that **updates the pass counts honestly** after repair. |
@@ -62,6 +63,9 @@ For client development, run `cd client && npm run dev`. This starts Vite on 5173
 - **Free Groq keys** allow about 8k tokens per minute. Two builds at the same time hit 429 errors, and Stak falls back to slower models, so a build can take 60–120 s instead of about 25 s. A paid Groq tier removes this.
 - Generated apps are single-page HTML/CSS/JS (no React or npm packages inside the generated app). This keeps previews instant and exports portable, but it limits very large apps.
 - QA is static and simulated, not a full headless browser run. It catches the most common breakages (syntax, undefined names, missing DOM ids, CommonJS CDN builds, intent mismatch). Some visual and logic bugs still reach review.
+- Template apps (chat, tracker) store data in the browser (localStorage) on each device; there is no cloud sync yet. Website leads do go to `stak.db`.
+- Template UI labels are English by default; content (names, prompts, categories) follows your language.
+- Wikimedia photo search is keyword based and sometimes picks an off-topic photo. Upload your own photos in the questions step for the best result.
 - One server instance only. Horizontal scaling needs Postgres and a shared queue.
 
 See `docs/` for the architecture, security model and API reference.

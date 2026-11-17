@@ -820,7 +820,7 @@ rt.post("/ai/chat", async (req, res) => {
   const msgs = (Array.isArray(messages) ? messages : []).filter((m) => m && m.content).slice(-30).map((m) => ({ role: m.role === "assistant" ? "assistant" : "user", content: String(m.content).slice(0, 12000) }));
   while (msgs.length && msgs[0].role === "assistant") msgs.shift();
   if (!msgs.length) return bad(res, 400, "Send at least one message");
-  const opts = { role: "fast", system: String(system || "You are a helpful assistant inside a web app. Be concise.").slice(0, 8000), messages: msgs, maxTokens: Math.min(4000, Number(maxTokens) || 1200), temperature: Math.min(1, Math.max(0, Number(temperature ?? 0.7))) };
+  const opts = { role: "appchat", system: String(system || "You are a helpful assistant inside a web app. Be concise.").slice(0, 8000), messages: msgs, maxTokens: Math.min(4000, Number(maxTokens) || 1200), temperature: Math.min(1, Math.max(0, Number(temperature ?? 0.7))) };
   const m = { kind: "builtin", id: "stak:fast" };
   try {
     if (stream) {
