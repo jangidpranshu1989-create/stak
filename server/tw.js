@@ -55,7 +55,7 @@ async function compile(files) {
   const src = sourceOf(files);
   const key = crypto.createHash("sha1").update(src).digest("hex");
   if (cache.has(key)) return cache.get(key);
-  const r = await postcss([tailwind(CONFIG(src))]).process("@tailwind components;\n@tailwind utilities;", { from: undefined });
+  const r = await postcss([tailwind(CONFIG(src))]).process("@tailwind base;\n@tailwind components;\n@tailwind utilities;", { from: undefined });
   const css = `/* Stak Tailwind build — generated from this project's classes. Do not edit; edit styles.css. */\n${BASE}${r.css}\n`;
   cache.set(key, css);
   if (cache.size > 200) cache.delete(cache.keys().next().value);

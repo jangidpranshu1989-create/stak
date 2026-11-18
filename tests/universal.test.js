@@ -49,3 +49,11 @@ test("apostrophe inside a single-quoted string is auto-repaired", () => {
   assert.ok(fixed);
   new (require("vm").Script)(fixed);
 });
+
+test("tailwind build ships --tw-* defaults so gradients and transforms render", async () => {
+  const tw = require("../server/tw.js");
+  const css = await tw.compile({ "index.html": '<div class="bg-gradient-to-br from-primary to-[hsl(var(--primary)/.8)] hover:-translate-y-0.5"></div>' });
+  const s = typeof css === "string" ? css : css.css || "";
+  assert.match(s, /--tw-gradient-from-position/);
+  assert.match(s, /--tw-translate-y:\s*0/);
+});
