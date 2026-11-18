@@ -77,7 +77,11 @@ const UI_KIT_DOC = `STYLING = TAILWIND + STAK KIT (both hosted and compiled for 
 - ICONS: <i data-icon="name" class="size-4"></i> (also works in HTML you render later from JS; or Icon("name") → SVG string). Any Lucide icon name (lucide.dev, 1,700+) works, e.g. ${ICON_HINT}. NEVER hand-draw SVG icons and never use emoji as icons.
 - JS helpers: ui.toast(msg,{type:'success'|'error'}) · ui.loading(btn,true|false) · ui.timeAgo(ts) · ui.theme.toggle() · ui.validate(form).
 
-DESIGN SYSTEM — make it look like Linear / Vercel / Raycast, not a tutorial:
+DESIGN SYSTEM — a polished, characterful product (think Lovable / Arc / Revolut), never a plain grey tutorial:
+- Personality: pick ONE confident brand hue that fits the subject (focus→ember/indigo, money→emerald, health→teal, food→amber/terracotta, games→vivid violet/lime, kids→sunny) and use it with intent: logo tile, primary buttons, active tab, progress, key numbers. The page background gets a soft brand wash: add <div aria-hidden="true" class="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[420px] bg-[radial-gradient(60%_60%_at_50%_0%,hsl(var(--primary)/.14),transparent)]"></div> right after <body>.
+- One hero surface per screen: the main instrument/summary card is rich — "rounded-3xl bg-gradient-to-br from-primary to-[hsl(var(--primary)/.75)] text-primary-foreground p-6 shadow-lg shadow-[hsl(var(--primary)/.25)]" (or a bordered card with a brand ring) holding the headline number/timer/total; the rest stay calm cards.
+- Colour-coded icon tiles everywhere a list item, stat or category appears: "grid size-10 place-items-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" — rotate emerald/sky/amber/rose/violet per category so lists are scannable; status pills "rounded-full px-2 py-0.5 text-xs font-medium bg-*-500/10 text-*-600".
+- Delight: buttons/cards "transition active:scale-[.97] hover:-translate-y-0.5 hover:shadow-md", celebratory toast + small confetti/pulse on completions, animated progress, illustrated empty states (big tinted icon tile + title + one line + primary button).
 - App shell: <body class="min-h-dvh bg-background text-foreground antialiased">; sticky header "sticky top-0 z-30 border-b bg-background/80 backdrop-blur" with inner "mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 sm:px-6" (logo tile + name left, actions + theme toggle right). Main "mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8". 3+ views → sidebar on lg and a fixed bottom tab bar on mobile ("fixed inset-x-0 bottom-0 border-t bg-background/90 backdrop-blur pb-[env(safe-area-inset-bottom)] lg:hidden") with main padded pb-24.
 - Use the space: on desktop put the main instrument and secondary panels side by side (lg:grid-cols-[minmax(0,1fr)_340px] or a 12-col grid); never one narrow column floating in empty space, never a giant title above the app.
 - Surfaces: cards "rounded-2xl border bg-card p-5 sm:p-6 shadow-sm"; group related controls; section titles text-sm font-medium text-muted-foreground. Spacing on a 4px rhythm (gap-2/3/4/6).
@@ -122,7 +126,7 @@ const QUALITY_DOC = `QUALITY BAR (all must be true):
 - Mobile-first: perfect at 375px (no horizontal scroll, 16px+ body text, tap targets ≥ 44px), scales to 1440px.
 - States: loading (skeletons/spinner), empty (.empty + helpful action), error (.alert-error + Retry), success (ui.toast).
 - Accessibility: semantic landmarks, one h1, labelled inputs, aria-label on icon buttons, visible :focus-visible, keyboard operable, prefers-reduced-motion respected.
-- Design: follows the DESIGN SYSTEM below; Google Fonts with preconnect; consistent radius; subtle borders over heavy shadows; WCAG AA contrast in light AND dark; no purple-gradient/AI-template clichés.
+- Design: follows the DESIGN SYSTEM below; Google Fonts with preconnect; consistent radius; subtle borders, one brand-tinted hero surface and colour-coded icon tiles; WCAG AA contrast in light AND dark; avoid generic purple-on-white AI-template look.
 - Code: no console errors, guard DOM lookups, escape user content (textContent or esc()), no eval, no inline secrets, no innerHTML with untrusted data.
 - <title>, meta description, viewport, lang attribute; logo.svg as favicon (<link rel="icon" href="logo.svg">).`;
 

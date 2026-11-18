@@ -5,4 +5,7 @@
     <string name="package_name">app.stak.builder</string>
     <string name="custom_url_scheme">app.stak.builder</string>
     <string name="widget_desc">Live build progress, your current project and updates</string>
+    <string name="widget_quick_desc">Start a new app in one tap, or jump to a chatbot, tracker or game idea</string>
+    <string name="widget_projects_desc">Your latest projects with live build status — tap one to open it</string>
+    <string name="widget_stats_desc">Builds running, live apps and today\'s AI usage at a glance</string>
 </resources>

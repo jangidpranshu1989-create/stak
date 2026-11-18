@@ -156,3 +156,14 @@
   .toolbar .select{ flex: 1; }
 }
 @media (max-width: 860px){ .toasts{ bottom: calc(84px + env(safe-area-inset-bottom)); } }
+
+/* brand personality: soft accent wash, gradient hero stat, colour-coded stat icons */
+body{ background-image: radial-gradient(70% 420px at 50% -120px, color-mix(in oklab, var(--accent) 16%, transparent), transparent); background-repeat: no-repeat; }
+.stat.hero{ background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 72%, #000)); color: var(--accent-fg, #fff); border-color: transparent; box-shadow: 0 14px 34px -14px color-mix(in oklab, var(--accent) 70%, transparent); }
+.stat.hero .stat-h, .stat.hero .stat-s{ color: color-mix(in oklab, var(--accent-fg, #fff) 82%, transparent); }
+.stat.hero .stat-ic{ background: rgba(255,255,255,.18); color: var(--accent-fg, #fff); }
+.stats > .stat:nth-child(2) .stat-ic{ background: color-mix(in oklab, #10b981 14%, transparent); color: #10b981; }
+.stats > .stat:nth-child(3) .stat-ic{ background: color-mix(in oklab, #3b82f6 14%, transparent); color: #3b82f6; }
+.stats > .stat:nth-child(4) .stat-ic{ background: color-mix(in oklab, #f59e0b 16%, transparent); color: #d97706; }
+.card{ transition: transform .18s ease, box-shadow .18s ease; }
+.stats > .stat:hover{ transform: translateY(-2px); }

@@ -34,7 +34,10 @@ public class StakWidget extends AppWidgetProvider {
         }
     }
 
-    static void updateAll(Context c) {
+    /** Refreshes every Stak widget kind (live, quick create, stats, projects). */
+    static void updateAll(Context c) { Widgets.updateAll(c); }
+
+    static void updateSelf(Context c) {
         AppWidgetManager m = AppWidgetManager.getInstance(c);
         int[] ids = m.getAppWidgetIds(new ComponentName(c, StakWidget.class));
         if (ids.length == 0) return;
@@ -111,7 +114,7 @@ public class StakWidget extends AppWidgetProvider {
     private static void chip(RemoteViews v, String text, boolean hot) {
         v.setTextViewText(R.id.w_chip, text);
         v.setInt(R.id.w_chip, "setBackgroundResource", hot ? R.drawable.widget_chip_hot : R.drawable.widget_chip);
-        v.setTextColor(R.id.w_chip, hot ? 0xFFF26B1D : 0xFFA8A29A);
+        v.setTextColor(R.id.w_chip, hot ? 0xFFFF8A3D : 0xFFB5AEA6);
         v.setViewVisibility(R.id.w_dot, hot ? View.VISIBLE : View.GONE);
     }
 }

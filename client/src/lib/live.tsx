@@ -13,8 +13,9 @@ export interface Summary {
   stats: { projects: number; building: number; ready: number; needsAnswers: number };
   active: ActiveJob[]; pending: { projectId: string; title: string; count: number }[];
   recent: { id: string; title: string; stage: string; running: boolean; updated: number; version: number }[];
+  usage?: { aiUsed: number; aiLimit: number };
 }
-interface LiveEvent { id: number; type: string; projectId: string; title: string; body: string; created: number }
+export interface LiveEvent { id: number; type: string; projectId: string; title: string; body: string; created: number }
 type Perm = "granted" | "denied" | "default" | "unsupported";
 interface Live { summary: Summary | null; perm: Perm; enable: () => Promise<Perm>; refresh: () => void }
 const Ctx = createContext<Live | null>(null);
@@ -23,7 +24,7 @@ export const PHASE_LABEL: Record<string, string> = {
   queued: "Queued", questions: "Preparing questions", blueprint: "Planning", research: "Researching", context: "Reading context",
   build: "Writing code", template: "Designing", photos: "Adding photos", qa: "Testing", review: "Reviewing", repair1: "Fixing issues", repair2: "Fixing issues", publish: "Publishing",
 };
-const EVENT_TEXT: Record<string, (e: LiveEvent) => { title: string; body: string }> = {
+export const EVENT_TEXT: Record<string, (e: LiveEvent) => { title: string; body: string }> = {
   build_done: (e) => ({ title: `${e.title} is ready`, body: e.body || "Your build finished" }),
   edit_done: (e) => ({ title: `${e.title} updated`, body: e.body || "Your edit is live" }),
   questions_ready: (e) => ({ title: `${e.title}: quick questions`, body: "Answer them to start the build" }),

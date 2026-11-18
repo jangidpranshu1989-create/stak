@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Moon, Sun, LogOut, User as UserIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -14,21 +14,26 @@ import { NotifyButton } from "@/components/live";
 export function Logo({ className, withWord = true }: { className?: string; withWord?: boolean }) {
   return (
     <span className={cn("inline-flex items-center gap-2", className)}>
-      <svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true" className="shrink-0">
-        <rect x="4" y="18" width="24" height="8" rx="2.5" fill="currentColor" opacity=".35" />
-        <rect x="7" y="11" width="18" height="8" rx="2.5" fill="currentColor" opacity=".65" />
-        <rect x="10" y="4" width="12" height="8" rx="2.5" fill="hsl(var(--primary))" />
-      </svg>
-      {withWord && <span className="font-display text-base font-semibold tracking-tight">Stak</span>}
+      <span className="bg-brand grid h-7 w-7 shrink-0 place-items-center rounded-[9px] shadow-[inset_0_1px_0_hsl(0_0%_100%/.35)]" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="18" height="18">
+          <rect x="5" y="19" width="22" height="6.5" rx="2.2" fill="#fff" opacity=".55" />
+          <rect x="8" y="12.5" width="16" height="6.5" rx="2.2" fill="#fff" opacity=".8" />
+          <rect x="11" y="6" width="10" height="6.5" rx="2.2" fill="#fff" />
+        </svg>
+      </span>
+      {withWord && <span className="font-display text-[17px] font-bold tracking-tight">Stak</span>}
     </span>
   );
 }
 
-// theme lives in memory only (no storage) and follows the OS by default
-let themeState: "light" | "dark" = typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+// dark-first brand; the user's choice is remembered when storage is available
+const savedTheme = (() => { try { return localStorage.getItem("stak_theme") as "light" | "dark" | null; } catch { return null; } })();
+let themeState: "light" | "dark" = savedTheme || "dark";
 const themeSubs = new Set<(t: "light" | "dark") => void>();
+export const getTheme = () => themeState;
 export function applyTheme(t: "light" | "dark") {
   themeState = t;
+  try { localStorage.setItem("stak_theme", t); } catch {}
   document.documentElement.classList.toggle("dark", t === "dark");
   themeSubs.forEach((f) => f(t));
   syncNativeChrome();
@@ -84,17 +89,29 @@ export function AccountButton() {
   );
 }
 
+function DeskNav() {
+  const [loc] = useLocation();
+  const items = [["/", "Create"], ["/projects", "Projects"], ["/activity", "Activity"], ["/me", "Account"]];
+  return (
+    <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
+      {items.map(([h, l]) => {
+        const on = h === "/" ? loc === "/" : loc.startsWith(h);
+        return <Link key={h} href={h} className={cn("rounded-full px-3 py-1.5 text-sm transition-colors", on ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:text-foreground")} data-testid={`nav-${l.toLowerCase()}`}>{l}</Link>;
+      })}
+    </nav>
+  );
+}
+
 export function TopBar({ children, right }: { children?: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b bg-background/85 px-3 backdrop-blur supports-[backdrop-filter]:bg-background/70 sm:px-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-border/60 bg-background/75 px-3 backdrop-blur-xl supports-[backdrop-filter]:bg-background/60 sm:px-4">
       <Link href="/" className="flex h-10 items-center rounded-md px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Stak home" data-testid="link-home">
         <Logo />
       </Link>
-      <div className="flex min-w-0 flex-1 items-center gap-2">{children}</div>
+      <div className="flex min-w-0 flex-1 items-center gap-2">{children ?? <DeskNav />}</div>
       <div className="flex items-center gap-1">
         {right}
-        <NotifyButton />
-        <ThemeToggle />
+        <span className="hidden md:contents"><NotifyButton /><ThemeToggle /></span>
         <AccountButton />
       </div>
     </header>

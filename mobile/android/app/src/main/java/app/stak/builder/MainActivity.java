@@ -73,10 +73,27 @@ public class MainActivity extends BridgeActivity {
 
     /** Notification / widget taps carry a projectId — jump straight to that workspace. */
     private void openProject(Intent i, long delay) {
+        if (i != null && i.hasExtra("route")) { openRoute(i, delay); return; }
         String pid = i == null ? null : i.getStringExtra("projectId");
         if (pid == null || pid.isEmpty() || !pid.matches("[A-Za-z0-9_-]{4,64}") || getBridge() == null) return;
         i.removeExtra("projectId");
         String js = "location.hash='#/p/" + pid + "'";
         getBridge().getWebView().postDelayed(() -> getBridge().getWebView().evaluateJavascript(js, null), delay);
+    }
+
+    /** Widget shortcuts: open the composer (optionally prefilled), activity or projects. */
+    private void openRoute(Intent i, long delay) {
+        String route = i.getStringExtra("route"), idea = i.getStringExtra("idea");
+        i.removeExtra("route"); i.removeExtra("idea");
+        if (getBridge() == null || route == null) return;
+        String js;
+        if ("activity".equals(route) || "projects".equals(route)) js = "location.hash='#/" + route + "'";
+        else {
+            String q = org.json.JSONObject.quote(idea == null ? "" : idea);
+            js = "(function(){var p=" + q + ";try{if(p)sessionStorage.setItem('stak_prefill',p);sessionStorage.setItem('stak_focus','1')}catch(e){}"
+               + "if(location.hash===''||location.hash==='#/'||location.hash==='#'){window.dispatchEvent(new CustomEvent('stak:create',{detail:p}))}else{location.hash='#/'}})()";
+        }
+        final String code = js;
+        getBridge().getWebView().postDelayed(() -> getBridge().getWebView().evaluateJavascript(code, null), delay);
     }
 }

@@ -41,6 +41,20 @@
                 android:resource="@xml/stak_widget_info" />
         </receiver>
 
+        <receiver android:name=".QuickCreateWidget" android:exported="false" android:label="Stak quick create">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/quick_widget_info" />
+        </receiver>
+        <receiver android:name=".ProjectsWidget" android:exported="false" android:label="Stak projects">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/projects_widget_info" />
+        </receiver>
+        <receiver android:name=".StatsWidget" android:exported="false" android:label="Stak stats">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/stats_widget_info" />
+        </receiver>
+        <service android:name=".ProjectsWidgetService" android:exported="false" android:permission="android.permission.BIND_REMOTEVIEWS" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

@@ -11,6 +11,9 @@ import { LiveDock } from "@/components/live";
 import Home from "@/pages/home";
 import Workspace from "@/pages/workspace";
 import NotFound from "@/pages/not-found";
+import Projects from "@/pages/projects";
+import ActivityPage from "@/pages/activity";
+import Me from "@/pages/me";
 import { useState } from "react";
 import { useSession } from "@/lib/session";
 import { Onboarding, isAppShell, onboarded } from "@/components/onboarding";
@@ -36,6 +39,9 @@ export default function App() {
             <Switch>
               <Route path="/" component={Home} />
               <Route path="/p/:id" component={Workspace} />
+              <Route path="/projects" component={Projects} />
+              <Route path="/activity" component={ActivityPage} />
+              <Route path="/me" component={Me} />
               <Route component={NotFound} />
             </Switch>
           </Router>
