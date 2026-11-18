@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/r_root" android:layout_width="match_parent" android:layout_height="52dp"
+    android:background="@drawable/widget_row" android:gravity="center_vertical" android:orientation="horizontal" android:paddingStart="8dp" android:paddingEnd="10dp">
+    <TextView android:id="@+id/r_tile" android:layout_width="34dp" android:layout_height="34dp" android:background="@drawable/widget_tile" android:gravity="center"
+        android:fontFamily="sans-serif-medium" android:text="S" android:textColor="#FFFFFFFF" android:textSize="15sp" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="10dp" android:orientation="vertical">
+        <TextView android:id="@+id/r_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1"
+            android:fontFamily="sans-serif-medium" android:textColor="#FFF6F2EE" android:textSize="13.5sp" />
+        <TextView android:id="@+id/r_sub" android:layout_width="match_parent" android:layout_height="wrap_content" android:ellipsize="end" android:maxLines="1"
+            android:textColor="#99FFFFFF" android:textSize="11sp" />
+    </LinearLayout>
+    <TextView android:id="@+id/r_badge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="6dp"
+        android:background="@drawable/widget_chip_hot" android:fontFamily="sans-serif-medium" android:paddingStart="7dp" android:paddingEnd="7dp" android:paddingTop="2dp" android:paddingBottom="2dp"
+        android:textColor="#FFFF8A3D" android:textSize="10sp" />
+</LinearLayout>

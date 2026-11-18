@@ -1,0 +1,7 @@
+{
+  "appId": "app.stak.builder",
+  "appName": "Stak",
+  "webDir": "www",
+  "server": { "url": "https://stak-ai.pplx.app", "androidScheme": "https", "errorPath": "offline.html" },
+  "android": { "backgroundColor": "#121110", "allowMixedContent": false }
+}

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/s_root" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:background="@drawable/widget_bg_brand" android:gravity="center_vertical" android:orientation="vertical"
+    android:paddingStart="14dp" android:paddingEnd="14dp" android:paddingTop="8dp" android:paddingBottom="8dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="bottom" android:orientation="horizontal">
+        <TextView android:id="@+id/s_building" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium"
+            android:text="0" android:textColor="#FFFFFFFF" android:textSize="22sp" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:layout_marginBottom="3dp"
+            android:text="building" android:textColor="#D9FFFFFF" android:textSize="11sp" />
+        <FrameLayout android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+        <TextView android:id="@+id/s_ready" android:layout_width="wrap_content" android:layout_height="wrap_content" android:fontFamily="sans-serif-medium"
+            android:text="0" android:textColor="#FFFFFFFF" android:textSize="22sp" />
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginStart="4dp" android:layout_marginBottom="3dp"
+            android:text="live" android:textColor="#D9FFFFFF" android:textSize="11sp" />
+    </LinearLayout>
+    <ProgressBar android:id="@+id/s_progress" style="@android:style/Widget.ProgressBar.Horizontal" android:layout_width="match_parent" android:layout_height="4dp"
+        android:layout_marginTop="4dp" android:max="100" android:progress="0" android:progressDrawable="@drawable/widget_progress_light" />
+    <TextView android:id="@+id/s_foot" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:ellipsize="end" android:maxLines="1"
+        android:text="AI today 0 / 0" android:textColor="#E6FFFFFF" android:textSize="10sp" />
+</LinearLayout>
